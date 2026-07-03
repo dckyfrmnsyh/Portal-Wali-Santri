@@ -1,0 +1,53 @@
+import { Student } from '../types/student';
+
+export const dummyStudents: Student[] = [
+  {
+    id: 'std-fauzan',
+    nisn: '1234567890',
+    nis: '2026001',
+    name: 'Ahmad Fauzan',
+    grade: 'VII A (SMP)',
+    academicYear: '2026/2027',
+    guardianName: 'Bapak Rahman',
+    guardianPhone: '081234567890',
+    address: 'Jl. Jenderal Sudirman, Tideng Pale, Tana Tidung, Kaltara',
+    status: 'active',
+  },
+  {
+    id: 'std-zahira',
+    nisn: '0987654321',
+    nis: '2026002',
+    name: 'Aisyah Zahira',
+    grade: 'X IPA (SMA)',
+    academicYear: '2026/2027',
+    guardianName: 'Bapak Abdullah',
+    guardianPhone: '085678901234',
+    address: 'Jl. Perintis, Sebawang, Tana Tidung, Kaltara',
+    status: 'active',
+  },
+  {
+    id: 'std-1',
+    nisn: '0091234567',
+    nis: '2026003',
+    name: 'Muhammad Farhan',
+    grade: '7-A SMP',
+    academicYear: '2025/2026',
+    guardianName: 'Budi Pratama',
+    guardianPhone: '081234567890',
+    address: 'Jl. Jenderal Sudirman, Tideng Pale, Tana Tidung, Kaltara',
+    status: 'active',
+  },
+  {
+    id: 'std-2',
+    nisn: '0087654321',
+    nis: '2026004',
+    name: 'Aisyah Humaira',
+    grade: '10-A SMA',
+    academicYear: '2025/2026',
+    guardianName: 'Ahmad Yani',
+    guardianPhone: '085678901234',
+    address: 'Jl. Perintis, Sebawang, Tana Tidung, Kaltara',
+    status: 'active',
+  },
+];
+
