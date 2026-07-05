@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", Georgia, serif;
+
+  --color-brand-green-950: #042f1d;
+  --color-brand-green-900: #064e3b;
+  --color-brand-green-800: #065f46;
+  --color-brand-green-700: #047857;
+  --color-brand-green-600: #059669;
+  --color-brand-green-50: #ecfdf5;
+  
+  --color-brand-gold-950: #451a03;
+  --color-brand-gold-900: #78350f;
+  --color-brand-gold-600: #ca8a04;
+  --color-brand-gold-500: #eab308;
+  --color-brand-gold-400: #facc15;
+  --color-brand-gold-100: #fef9c3;
+  --color-brand-gold-50: #fefce8;
+
+  --color-brand-cream-900: #453c29;
+  --color-brand-cream-200: #ede0c8;
+  --color-brand-cream-100: #f7f1e3;
+  --color-brand-cream-50: #fdfbf7;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-brand-cream-50);
+}
+
