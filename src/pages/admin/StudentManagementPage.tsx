@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, ShieldAlert, AlertCircle, Search, SlidersHorizontal, CheckSquare, XCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, ShieldAlert, AlertCircle, Search, SlidersHorizontal, CheckSquare, XCircle, Upload, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Student } from '../../types/student';
 import { DataTable } from '../../components/ui/DataTable';
 import { Button } from '../../components/ui/Button';
@@ -24,6 +25,7 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
   onDeleteStudent,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false); // State for import modal
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
 
   // Form states
@@ -35,6 +37,7 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
   const [guardianPhone, setGuardianPhone] = useState('');
   const [address, setAddress] = useState('');
   const [status, setStatus] = useState<'active' | 'graduated' | 'inactive'>('active');
+  const [sppAmount, setSppAmount] = useState<number | undefined>(undefined); // New state for sppAmount
   const [error, setError] = useState('');
 
   // Search & Filter states
@@ -52,6 +55,7 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
     setGuardianPhone('');
     setAddress('');
     setStatus('active');
+    setSppAmount(undefined); // Reset sppAmount
     setError('');
     setIsModalOpen(true);
   };
@@ -66,8 +70,122 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
     setGuardianPhone(student.guardianPhone);
     setAddress(student.address);
     setStatus(student.status);
+    setSppAmount(student.sppAmount); // Set sppAmount for editing
     setError('');
     setIsModalOpen(true);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setError('Tidak ada file yang dipilih.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        if (!json || json.length === 0) {
+          setError('File Excel kosong atau tidak memiliki data.');
+          return;
+        }
+
+        const importedStudents: Omit<Student, 'id'>[] = json.map((row) => ({
+          name: String(row['Nama Santri'] || '').trim(),
+          nisn: String(row['NISN'] || '').trim(),
+          nis: String(row['NIS'] || '').trim(),
+          grade: String(row['Kelas'] || '10-A SMA').trim(),
+          guardianName: String(row['Nama Wali'] || '').trim(),
+          guardianPhone: String(row['Nomor WA Wali'] || '').trim(),
+          address: String(row['Alamat'] || '').trim(),
+          status: (String(row['Status Santri'] || 'active').toLowerCase() as 'active' | 'graduated' | 'inactive'),
+          sppAmount: row['Nominal SPP'] ? Number(row['Nominal SPP']) : undefined,
+        }));
+
+        // Basic validation for imported students
+        const errors: string[] = [];
+        importedStudents.forEach((student, index) => {
+          if (!student.name || !student.nisn || !student.nis || !student.guardianName || !student.guardianPhone) {
+            errors.push(`Baris ${index + 2}: Data wajib (Nama, NISN, NIS, Nama Wali, No. WA Wali) tidak lengkap.`);
+          }
+          if (student.nisn.length !== 10 || isNaN(Number(student.nisn))) {
+            errors.push(`Baris ${index + 2}: NISN harus 10 digit angka.`);
+          }
+          if (isNaN(Number(student.nis))) {
+            errors.push(`Baris ${index + 2}: NIS harus berupa angka.`);
+          }
+          // Check for duplicate NISN/NIS within the imported batch and existing students
+          const existingNisn = students.some(s => s.nisn === student.nisn);
+          const existingNis = students.some(s => s.nis === student.nis);
+          if (existingNisn) {
+            errors.push(`Baris ${index + 2}: NISN ${student.nisn} sudah terdaftar.`);
+          }
+          if (existingNis) {
+            errors.push(`Baris ${index + 2}: NIS ${student.nis} sudah terdaftar.`);
+          }
+        });
+
+        if (errors.length > 0) {
+          setError(`Ditemukan kesalahan dalam file Excel:\n${errors.join('\n')}`);
+          return;
+        }
+
+        importedStudents.forEach(student => onAddStudent(student));
+        alert(`Berhasil mengimpor ${importedStudents.length} santri.`);
+        setError('');
+      } catch (err) {
+        setError('Gagal membaca file Excel. Pastikan format file benar.');
+        console.error('Error reading excel file:', err);
+      } finally {
+        // Clear the file input to allow re-uploading the same file
+        event.target.value = '';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleDownloadTemplate = () => {
+    const templateHeaders = [
+      'Nama Santri', 'NISN', 'NIS', 'Kelas', 'Nama Wali', 'Nomor WA Wali', 'Alamat', 'Status Santri', 'Nominal SPP'
+    ];
+    const templateData = [
+      { 
+        'Nama Santri': 'Contoh Nama Santri', 
+        'NISN': '0012345678', 
+        'NIS': '1234', 
+        'Kelas': '10-A SMA', 
+        'Nama Wali': 'Contoh Nama Wali', 
+        'Nomor WA Wali': '081234567890', 
+        'Alamat': 'Jalan Contoh No. 1', 
+        'Status Santri': 'active', 
+        'Nominal SPP': 500000 
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData, { header: templateHeaders });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Template Santri');
+    
+    // Set column widths for better readability
+    worksheet['!cols'] = [
+      { wch: 25 }, // Nama Santri
+      { wch: 15 }, // NISN
+      { wch: 10 }, // NIS
+      { wch: 15 }, // Kelas
+      { wch: 25 }, // Nama Wali
+      { wch: 20 }, // Nomor WA Wali
+      { wch: 30 }, // Alamat
+      { wch: 15 }, // Status Santri
+      { wch: 15 }, // Nominal SPP
+    ];
+
+    XLSX.writeFile(workbook, 'template_import_santri.xlsx');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -111,6 +229,7 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
       guardianPhone: guardianPhone.trim(),
       address: address.trim(),
       status,
+      sppAmount: sppAmount, // Include sppAmount in payload
     };
 
     if (editingStudent) {
@@ -333,6 +452,16 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
         <div className="flex items-center gap-2">
           <ExportButton data={filteredStudents} filename="data-santri.csv" headers={exportHeaders} />
           
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setIsImportModalOpen(true)}
+            className="border-brand-green-900 text-brand-green-900 hover:bg-brand-green-50 font-bold px-4 py-2 rounded-xl"
+          >
+            <Upload className="h-4 w-4 mr-1.5" />
+            Import Excel
+          </Button>
+
           <Button variant="primary" size="sm" onClick={openAddModal} className="bg-brand-green-900 hover:bg-brand-green-800 text-white font-bold px-4 py-2 rounded-xl">
             <Plus className="h-4 w-4 mr-1.5" />
             Tambah Santri
@@ -459,6 +588,15 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
               />
             </div>
 
+            <Input
+              id="student-spp-amount"
+              label="Nominal SPP Per Santri (Opsional)"
+              type="number"
+              placeholder="Contoh: 500000"
+              value={sppAmount === undefined ? '' : sppAmount}
+              onChange={(e) => setSppAmount(e.target.value === '' ? undefined : Number(e.target.value))}
+            />
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
                 id="student-guardian"
@@ -496,6 +634,70 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Import Excel Modal */}
+      <Modal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        title="Import Data Santri dari Excel"
+      >
+        <div className="space-y-4">
+          {error && (
+            <div className="p-3 bg-rose-50 text-rose-700 text-xs font-semibold rounded-lg flex items-center gap-2 border border-rose-100 whitespace-pre-wrap">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="p-4 border border-dashed border-slate-300 rounded-xl text-center">
+            <input
+              type="file"
+              id="excel-upload-input"
+              accept=".xlsx, .xls"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+            <label
+              htmlFor="excel-upload-input"
+              className="cursor-pointer flex flex-col items-center justify-center space-y-2"
+            >
+              <Upload className="h-8 w-8 text-slate-400" />
+              <span className="font-semibold text-brand-green-900">Klik untuk memilih file</span>
+              <span className="text-xs text-slate-500">Atau seret dan lepas file Excel (.xlsx, .xls)</span>
+            </label>
+          </div>
+
+          <div className="text-sm text-slate-600 space-y-2">
+            <p>Pastikan file Excel Anda memiliki kolom berikut:</p>
+            <ul className="list-disc list-inside text-xs bg-slate-50 p-3 rounded-lg font-mono text-slate-700">
+              <li>Nama Santri</li>
+              <li>NISN</li>
+              <li>NIS</li>
+              <li>Kelas</li>
+              <li>Nama Wali</li>
+              <li>Nomor WA Wali</li>
+              <li>Alamat</li>
+              <li>Status Santri (opsional, default: active)</li>
+              <li>Nominal SPP (opsional)</li>
+            </ul>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDownloadTemplate}
+              className="rounded-xl text-sm"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Unduh Template
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setIsImportModalOpen(false)} className="rounded-xl">
+              Tutup
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Calendar, DollarSign, Users, CheckCircle2, AlertCircle, FileText, FileSpreadsheet, Filter, RefreshCw } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 import { Student } from '../../types/student';
 import { SppBill } from '../../types/spp';
 import { Card } from '../../components/ui/Card';
@@ -88,19 +89,23 @@ export const MonthlySppReportPage: React.FC<MonthlySppReportPageProps> = ({ stud
         const jenjang = checkJenjang(student.grade);
         const sisa = bill.amount - bill.paidAmount;
 
-        // Determine status
+        // Determine status with proper overdue handling
         let statusText = 'Belum Lunas';
+        const today = new Date().toISOString().split('T')[0];
+        const isOverdue = bill.dueDate ? bill.dueDate < today : false;
+
         if (sisa === 0) {
+          // Fully paid
           statusText = 'Lunas';
+        } else if (isOverdue) {
+          // Past due date with remaining balance = Menunggak
+          statusText = 'Menunggak';
         } else if (bill.paidAmount > 0) {
+          // Partially paid but not overdue = Cicilan
           statusText = 'Cicilan';
         } else {
-          // Check if overdue
-          const today = new Date().toISOString().split('T')[0];
-          const isOverdue = bill.dueDate ? bill.dueDate < today : false;
-          if (isOverdue) {
-            statusText = 'Menunggak';
-          }
+          // Not paid and not overdue = Belum Lunas
+          statusText = 'Belum Lunas';
         }
 
         return {
@@ -164,9 +169,343 @@ export const MonthlySppReportPage: React.FC<MonthlySppReportPageProps> = ({ stud
     };
   }, [processedData]);
 
-  // Handle mock PDF export click
+  // Generate HTML content for PDF
+  const generatePDFHTML = () => {
+    const dateStr = new Date().toLocaleDateString('id-ID');
+    const monthDisplay = selectedMonth === 'all' ? 'Semua Bulan' : selectedMonth;
+    
+    const tableRows = processedData.map((row, idx) => {
+      const statusClass = row.statusText === 'Lunas' 
+        ? 'status-lunas' 
+        : row.statusText === 'Cicilan' 
+          ? 'status-cicilan' 
+          : 'status-belum';
+      
+      const jenjangClass = row.studentJenjang === 'SMA' ? 'tag-sma' : 'tag-smp';
+      
+      return `
+        <tr>
+          <td class="text-center">${idx + 1}</td>
+          <td class="text-bold">${row.studentName}</td>
+          <td>${row.studentNisn}</td>
+          <td class="text-center"><span class="tag-jenjang ${jenjangClass}">${row.studentJenjang}</span></td>
+          <td>${row.studentGrade}</td>
+          <td class="text-right text-bold">${formatCurrency(row.amount)}</td>
+          <td class="text-right text-green">${formatCurrency(row.paidAmount)}</td>
+          <td class="text-right ${row.sisa > 0 ? 'text-red' : ''}">${row.sisa > 0 ? formatCurrency(row.sisa) : '-'}</td>
+          <td class="text-center"><span class="status ${statusClass}">${row.statusText}</span></td>
+        </tr>
+      `;
+    }).join('');
+
+    const html = `
+      <!DOCTYPE html>
+      <html lang="id">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Laporan SPP Bulanan - Ponpes Al-Khairaat</title>
+          <style>
+              body {
+                  background-color: #fafcfb;
+                  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                  color: #333;
+                  margin: 0;
+                  padding: 15mm;
+              }
+              * { box-sizing: border-box; }
+              
+              @media print {
+                  body { background-color: white; padding: 0; }
+                  @page { size: A4; margin: 15mm 12mm; }
+              }
+
+              .instansi-header {
+                  border-bottom: 3px double #005c3c;
+                  padding-bottom: 12px;
+                  margin-bottom: 15px;
+              }
+              .instansi-title {
+                  font-size: 16pt;
+                  font-weight: bold;
+                  color: #005c3c;
+                  text-transform: uppercase;
+                  letter-spacing: 0.5px;
+                  text-align: center;
+                  margin: 0;
+              }
+              .instansi-subtitle {
+                  font-size: 10pt;
+                  color: #ff9800;
+                  font-weight: bold;
+                  text-transform: uppercase;
+                  text-align: center;
+                  margin-top: 3px;
+              }
+
+              .report-title-section {
+                  margin-bottom: 20px;
+              }
+              .report-title {
+                  color: #111;
+                  margin: 0;
+                  font-size: 20pt;
+                  font-weight: bold;
+                  text-align: center;
+              }
+              .report-desc {
+                  color: #666;
+                  margin: 4px 0 10px 0;
+                  font-size: 10pt;
+                  font-style: italic;
+                  text-align: center;
+              }
+
+              .meta-table {
+                  width: 100%;
+                  margin-bottom: 15px;
+                  font-size: 9.5pt;
+                  background: #f1f5f3;
+                  border-radius: 6px;
+                  padding: 10px 15px;
+                  border: 1px solid #e0e8e4;
+              }
+              .meta-table table {
+                  width: 100%;
+                  border-collapse: collapse;
+              }
+              .meta-table td {
+                  padding: 4px 0;
+                  border: none;
+              }
+
+              .summary-container {
+                  width: 100%;
+                  margin-bottom: 20px;
+                  display: flex;
+                  justify-content: space-between;
+                  gap: 15px;
+              }
+              .summary-card {
+                  flex: 1;
+                  background: #ffffff;
+                  border: 1px solid #d0ded7;
+                  border-radius: 6px;
+                  padding: 12px;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+              }
+              .summary-title {
+                  font-size: 7.5pt;
+                  font-weight: bold;
+                  color: #666;
+                  text-transform: uppercase;
+                  margin-bottom: 4px;
+              }
+              .summary-value {
+                  font-size: 13pt;
+                  font-weight: bold;
+                  color: #005c3c;
+              }
+              .summary-value.red { color: #d32f2f; }
+              .summary-value.green { color: #00897b; }
+              .summary-sub {
+                  font-size: 7pt;
+                  color: #999;
+                  margin-top: 3px;
+              }
+
+              table.data-table {
+                  width: 100%;
+                  border-collapse: collapse;
+                  background: #fff;
+                  border-radius: 6px;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+                  font-size: 9pt;
+                  border: 1px solid #e0eae5;
+              }
+              table.data-table th {
+                  background-color: #005c3c;
+                  color: #ffffff;
+                  padding: 10px 8px;
+                  text-align: left;
+                  font-weight: bold;
+                  font-size: 9.5pt;
+                  border-bottom: 2px solid #00442c;
+              }
+              table.data-table td {
+                  padding: 10px 8px;
+                  border-bottom: 1px solid #eaeaea;
+                  color: #333;
+              }
+              table.data-table tr:nth-child(even) { background-color: #f7fbf9; }
+
+              .tag-jenjang {
+                  font-size: 8pt;
+                  padding: 3px 8px;
+                  border-radius: 4px;
+                  font-weight: bold;
+              }
+              .tag-sma { background: #fff4e5; color: #ff9800; border: 1px solid #ffe0b2; }
+              .tag-smp { background: #e3f2fd; color: #2196f3; border: 1px solid #bbdefb; }
+
+              .status {
+                  font-size: 8pt;
+                  padding: 4px 10px;
+                  border-radius: 12px;
+                  font-weight: bold;
+                  text-align: center;
+                  display: inline-block;
+              }
+              .status-lunas { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+              .status-cicilan { background: #f3e5f5; color: #7b1fa2; border: 1px solid #e1bee7; }
+              .status-belum { background: #eceff1; color: #455a64; border: 1px solid #cfd8dc; }
+              
+              .text-right { text-align: right !important; }
+              .text-center { text-align: center !important; }
+              .text-red { color: #d32f2f; font-weight: bold; }
+              .text-green { color: #00897b; font-weight: bold; }
+              .text-bold { font-weight: bold; }
+
+              .footer-signatures {
+                  margin-top: 30px;
+                  width: 100%;
+                  font-size: 9.5pt;
+                  display: flex;
+                  justify-content: space-between;
+              }
+              .signature-block {
+                  width: 250px;
+              }
+              .signature-block.right {
+                  text-align: right;
+              }
+              .signature-space {
+                  height: 70px;
+              }
+          </style>
+      </head>
+      <body>
+          <div class="instansi-header">
+              <div class="instansi-title">Pondok Pesantren Al-Khairaat</div>
+              <div class="instansi-subtitle">Portal Ponpes Tana Tidung • Kabupaten Tana Tidung</div>
+          </div>
+
+          <div class="report-title-section">
+              <h1 class="report-title">Laporan SPP Bulanan</h1>
+              <p class="report-desc">Audit ringkasan tagihan, realisasi pembayaran, dan pemantauan santri menunggak.</p>
+          </div>
+
+          <div class="meta-table">
+              <table>
+                  <tr>
+                      <td style="width: 15%; font-weight: bold; color: #555;">Periode Laporan</td>
+                      <td style="width: 2%; color: #555;">:</td>
+                      <td style="width: 33%; font-weight: bold; color: #005c3c;">${monthDisplay} ${selectedAcademicYear}</td>
+                      
+                      <td style="width: 15%; font-weight: bold; color: #555;">Tanggal Cetak</td>
+                      <td style="width: 2%; color: #555;">:</td>
+                      <td style="width: 33%; color: #333;">${dateStr}</td>
+                  </tr>
+                  <tr>
+                      <td style="font-weight: bold; color: #555;">Tahun Ajaran</td>
+                      <td>:</td>
+                      <td style="color: #333;">${selectedAcademicYear}</td>
+                      
+                      <td style="font-weight: bold; color: #555;">Status Dokumen</td>
+                      <td>:</td>
+                      <td style="color: #2e7d32; font-weight: bold;">Final / Resmi</td>
+                  </tr>
+              </table>
+          </div>
+
+          <div class="summary-container">
+              <div class="summary-card">
+                  <div class="summary-title">TOTAL TAGIHAN</div>
+                  <div class="summary-value">${formatCurrency(summary.totalTagihan)}</div>
+                  <div class="summary-sub">Periode filter aktif</div>
+              </div>
+              <div class="summary-card">
+                  <div class="summary-title">TOTAL DIBAYAR</div>
+                  <div class="summary-value green">${formatCurrency(summary.totalDibayar)}</div>
+                  <div class="summary-sub">Realisasi terkumpul</div>
+              </div>
+              <div class="summary-card">
+                  <div class="summary-title">TOTAL SISA</div>
+                  <div class="summary-value red">${formatCurrency(summary.totalSisa)}</div>
+                  <div class="summary-sub">Piutang belum tertagih</div>
+              </div>
+              <div class="summary-card">
+                  <div class="summary-title">SANTRI LUNAS</div>
+                  <div class="summary-value green">${summary.lunasCount} Santri</div>
+                  <div class="summary-sub">Dari ${summary.totalStudents} terfilter</div>
+              </div>
+              <div class="summary-card">
+                  <div class="summary-title" style="color:#d32f2f;">SANTRI MENUNGGAK</div>
+                  <div class="summary-value" style="color:#ff9800;">${summary.menunggakCount} Santri</div>
+                  <div class="summary-sub">Lewat jatuh tempo</div>
+              </div>
+          </div>
+
+          <table class="data-table">
+              <thead>
+                  <tr>
+                      <th width="4%" class="text-center">No</th>
+                      <th width="18%">Nama Santri</th>
+                      <th width="12%">NISN</th>
+                      <th width="8%" class="text-center">Jenjang</th>
+                      <th width="10%">Kelas</th>
+                      <th width="12%" class="text-right">Nominal Tagihan</th>
+                      <th width="12%" class="text-right">Total Dibayar</th>
+                      <th width="12%" class="text-right">Sisa</th>
+                      <th width="12%" class="text-center">Status</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  ${tableRows}
+              </tbody>
+          </table>
+
+          <div class="footer-signatures">
+              <div class="signature-block">
+                  <p>Mengetahui,</p>
+                  <p style="font-weight: bold;">Bendahara Pesantren</p>
+                  <div class="signature-space"></div>
+                  <p style="text-decoration: underline; font-weight: bold;">( _______________________ )</p>
+              </div>
+              <div class="signature-block right">
+                  <p>Tana Tidung, ${dateStr}</p>
+                  <p style="font-weight: bold;">Kepala Sekolah</p>
+                  <div class="signature-space"></div>
+                  <p style="text-decoration: underline; font-weight: bold;">( _______________________ )</p>
+              </div>
+          </div>
+      </body>
+      </html>
+    `;
+
+    return html;
+  };
+
+  // Handle PDF export click
   const handleExportPDF = () => {
-    alert('📋 Fitur Ekspor Laporan SPP ke PDF sedang disiapkan.\nFormat PDF resmi dengan kop surat Pondok Pesantren Al-Khairaat akan diunduh secara otomatis.');
+    const htmlContent = generatePDFHTML();
+    const element = document.createElement('div');
+    element.innerHTML = htmlContent;
+    document.body.appendChild(element);
+
+    const monthDisplay = selectedMonth === 'all' ? 'Semua_Bulan' : selectedMonth;
+    const fileName = `Laporan_SPP_${monthDisplay}_${selectedAcademicYear.replace('/', '_')}`;
+
+    const opt = {
+      margin: 10,
+      filename: `${fileName}.pdf`,
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { orientation: 'landscape' as const, unit: 'mm', format: 'a4' },
+    };
+
+    html2pdf().set(opt).from(element).save();
+    document.body.removeChild(element);
   };
 
   // Handle mock Excel export click

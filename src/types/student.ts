@@ -9,4 +9,5 @@ export interface Student {
   guardianPhone: string;
   address: string;
   status: 'active' | 'graduated' | 'inactive';
+  sppAmount?: number; // New field for individual SPP amount
 }

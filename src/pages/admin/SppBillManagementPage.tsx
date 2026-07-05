@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Eye, DollarSign, AlertCircle, Sparkles } from 'lucide-react';
+import { Plus, Eye, DollarSign, AlertCircle, Sparkles, CheckSquare as CheckBadgeIcon } from 'lucide-react';
 import { Student } from '../../types/student';
 import { SppBill } from '../../types/spp';
 import { DataTable } from '../../components/ui/DataTable';
@@ -21,7 +21,8 @@ interface SppBillManagementPageProps {
     academicYear?: string,
     dueDate?: string,
     jenjang?: 'all' | 'SMP' | 'SMA',
-    grade?: string
+    grade?: string,
+    useIndividualSpp?: boolean // New parameter
   ) => void;
   onRecordCashPayment: (billId: string, amount: number, reference: string, date: string) => void;
 }
@@ -38,10 +39,11 @@ export const SppBillManagementPage: React.FC<SppBillManagementPageProps> = ({
   const [genYear, setGenYear] = useState(2026);
   const [jenjang, setJenjang] = useState<'all' | 'SMP' | 'SMA'>('all');
   const [grade, setGrade] = useState('all');
-  const [amount, setAmount] = useState(500000);
+  const [amount, setAmount] = useState(500000); // Default bulk amount
   const [dueDate, setDueDate] = useState('2026-07-10');
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
+  const [useIndividualSpp, setUseIndividualSpp] = useState(false); // New state for individual SPP
 
   // Selected Batch Modal States (for drill down)
   const [selectedBatch, setSelectedBatch] = useState<any | null>(null);
@@ -177,7 +179,7 @@ export const SppBillManagementPage: React.FC<SppBillManagementPageProps> = ({
     setFormError('');
     setFormSuccess('');
 
-    if (amount <= 0) {
+    if (!useIndividualSpp && amount <= 0) { // Only validate bulk amount if not using individual
       setFormError('Nominal SPP harus lebih besar dari Rp 0.');
       return;
     }
@@ -201,7 +203,7 @@ export const SppBillManagementPage: React.FC<SppBillManagementPageProps> = ({
       return;
     }
 
-    onGenerateBulkBills(genMonth, genYear, amount, academicYear, dueDate, jenjang, grade);
+    onGenerateBulkBills(genMonth, genYear, amount, academicYear, dueDate, jenjang, grade, useIndividualSpp);
     setFormSuccess(`Berhasil menerbitkan SPP periode ${genMonth} ${genYear} untuk ${activeMatch.length} santri aktif.`);
   };
 
@@ -421,7 +423,8 @@ export const SppBillManagementPage: React.FC<SppBillManagementPageProps> = ({
             type="number"
             value={amount}
             onChange={(e) => setAmount(Number(e.target.value))}
-            required
+            required={!useIndividualSpp} // Required only if not using individual SPP
+            disabled={useIndividualSpp} // Disable if using individual SPP
           />
 
           <Input
@@ -433,7 +436,20 @@ export const SppBillManagementPage: React.FC<SppBillManagementPageProps> = ({
             required
           />
 
-          <div className="md:col-span-3 lg:col-span-6 flex justify-end">
+          <div className="flex items-center gap-2 md:col-span-3 lg:col-span-3">
+            <input
+              type="checkbox"
+              id="use-individual-spp"
+              checked={useIndividualSpp}
+              onChange={(e) => setUseIndividualSpp(e.target.checked)}
+              className="h-4 w-4 text-brand-green-600 focus:ring-brand-green-500 border-gray-300 rounded"
+            />
+            <label htmlFor="use-individual-spp" className="text-xs font-medium text-slate-700">
+              Gunakan tarif SPP per santri (diambil dari data santri)
+            </label>
+          </div>
+
+          <div className="md:col-span-3 lg:col-span-3 flex justify-end">
             <Button
               type="submit"
               variant="primary"
@@ -465,7 +481,6 @@ export const SppBillManagementPage: React.FC<SppBillManagementPageProps> = ({
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         title={selectedBatch ? `Detail Tagihan: Kelas ${selectedBatch.grade} - Periode ${selectedBatch.month} ${selectedBatch.year}` : 'Detail Tagihan'}
-        size="lg"
       >
         {selectedBatch && (
           <div className="space-y-4">
@@ -635,19 +650,3 @@ export const SppBillManagementPage: React.FC<SppBillManagementPageProps> = ({
     </div>
   );
 };
-
-const CheckBadgeIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    {...props}
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-    <path d="m9 12 2 2 4-4" />
-  </svg>
-);

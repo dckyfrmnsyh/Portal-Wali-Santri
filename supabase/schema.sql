@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS students (
   guardian_name TEXT NOT NULL,
   guardian_phone TEXT NOT NULL,
   address TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'graduated', 'inactive'))
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'graduated', 'inactive')),
+  spp_amount NUMERIC -- New field for individual SPP amount
 );
 
 -- Table: spp_bills

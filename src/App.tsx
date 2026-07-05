@@ -30,7 +30,8 @@ import { MonthlyMealReportPage } from './pages/admin/MonthlyMealReportPage';
 const toStudent = (db: any): Student => ({
   id: db.id, nisn: db.nisn, nis: db.nis, name: db.name, grade: db.grade,
   academicYear: db.academic_year, guardianName: db.guardian_name,
-  guardianPhone: db.guardian_phone, address: db.address, status: db.status
+  guardianPhone: db.guardian_phone, address: db.address, status: db.status,
+  sppAmount: db.spp_amount // Map spp_amount from DB to sppAmount in frontend
 });
 
 const toInstallment = (db: any): Installment => ({
@@ -117,8 +118,8 @@ export default function App() {
 
   // 1. Guardian: Submit manual payment confirmation
   const handleAddPaymentConfirmation = async (data: {
-    studentId: string;
-    billId: string;
+    studentId: string; // UUID
+    billId: string;     // UUID
     amount: number;
     paymentDate: string;
     method: 'transfer' | 'cash';
@@ -157,8 +158,8 @@ export default function App() {
     }
 
     const { error } = await supabase.rpc('submit_payment', {
-      p_student_id: data.studentId,
-      p_bill_id: data.billId,
+      p_student_id: data.studentId, // Pass as UUID
+      p_bill_id: data.billId,       // Pass as UUID
       p_amount: data.amount,
       p_payment_date: data.paymentDate,
       p_method: data.method,
@@ -179,7 +180,7 @@ export default function App() {
   };
 
   // 2. Admin: Validate/Approve manual transfer confirmation
-  const handleApprovePayment = async (paymentId: string) => {
+  const handleApprovePayment = async (paymentId: string) => { // paymentId is UUID
     const { error } = await supabase.rpc('approve_payment', { p_payment_id: paymentId });
     if (error) {
       console.error("Approve payment error:", error);
@@ -190,7 +191,7 @@ export default function App() {
   };
 
   // 3. Admin: Reject manual transfer confirmation
-  const handleRejectPayment = async (paymentId: string, reason: string) => {
+  const handleRejectPayment = async (paymentId: string, reason: string) => { // paymentId is UUID
     const { error } = await supabase.rpc('reject_payment', { p_payment_id: paymentId, p_reason: reason });
     if (error) {
       console.error("Reject payment error:", error);
@@ -211,7 +212,8 @@ export default function App() {
       guardian_name: studentData.guardianName,
       guardian_phone: studentData.guardianPhone,
       address: studentData.address,
-      status: studentData.status
+      status: studentData.status,
+      spp_amount: studentData.sppAmount // Include spp_amount
     }]);
     
     if (error) console.error("Add student error:", error);
@@ -228,7 +230,8 @@ export default function App() {
       guardian_name: updatedStudent.guardianName,
       guardian_phone: updatedStudent.guardianPhone,
       address: updatedStudent.address,
-      status: updatedStudent.status
+      status: updatedStudent.status,
+      spp_amount: updatedStudent.sppAmount // Include spp_amount
     }).eq('id', updatedStudent.id);
     
     if (error) console.error("Update student error:", error);
@@ -250,7 +253,8 @@ export default function App() {
     academicYear: string = "2026/2027",
     dueDate: string = "",
     jenjang: 'all' | 'SMP' | 'SMA' = 'all',
-    grade: string = 'all'
+    grade: string = 'all',
+    useIndividualSpp: boolean = false // New parameter
   ) => {
     const activeStudents = students.filter((s) => {
       if (s.status !== 'active') return false;
@@ -271,12 +275,15 @@ export default function App() {
         };
         const mCode = monthMap[month] || '01';
         const finalDueDate = dueDate || `${year}-${mCode}-10`;
+        const billAmount = useIndividualSpp && student.sppAmount !== undefined && student.sppAmount !== null
+          ? student.sppAmount
+          : amount;
 
         newBillsToInsert.push({
           student_id: student.id,
           month,
           year,
-          amount,
+          amount: billAmount,
           paid_amount: 0,
           status: 'unpaid',
           due_date: finalDueDate
@@ -285,7 +292,7 @@ export default function App() {
     }
 
     if (newBillsToInsert.length > 0) {
-      const { error } = await supabase.from('spp_bills').insert(newBillsToInsert);
+      const { error } = await supabase.from('spp_bills').upsert(newBillsToInsert, { onConflict: 'student_id,month,year' });
       if (error) console.error("Generate bills error:", error);
       else fetchData();
     }
@@ -293,7 +300,7 @@ export default function App() {
 
   // 8. Admin: Record cash payment received at counter
   const handleRecordCashPayment = async (
-    billId: string,
+    billId: string, // UUID
     amount: number,
     reference: string,
     date: string
@@ -325,7 +332,7 @@ export default function App() {
 
   // 8b. Admin: Record general payment from payment page
   const handleRecordAdminPayment = async (
-    billId: string,
+    billId: string, // UUID
     amount: number,
     method: 'cash' | 'transfer',
     reference: string,
@@ -380,7 +387,7 @@ export default function App() {
     else fetchData();
   };
 
-  const handleDeleteMealRecord = async (id: string) => {
+  const handleDeleteMealRecord = async (id: string) => { // UUID
     const { error } = await supabase.from('meal_finance').delete().eq('id', id);
     if (error) console.error("Delete meal record error:", error);
     else fetchData();
