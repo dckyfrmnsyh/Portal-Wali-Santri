@@ -24,9 +24,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       <Navbar role="admin" onLogout={onLogout} />
 
-      <div className="flex-1 flex flex-col md:flex-row relative">
-        {/* Desktop Sidebar */}
-        <div className="hidden md:block">
+      <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+        {/* Desktop Sidebar - fixed height, never scrolls with page */}
+        <div className="hidden md:block h-[calc(100vh-4rem)] flex-shrink-0">
           <Sidebar
             currentPage={currentPage}
             onPageChange={onPageChange}
@@ -80,8 +80,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 bg-slate-50">
+        {/* Main Content Area - this is the only part that scrolls */}
+        <div className="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-y-auto h-[calc(100vh-4rem)]">
           <main className="flex-1 p-4 sm:p-6 md:p-8">
             <div className="max-w-6xl mx-auto space-y-6">{children}</div>
           </main>

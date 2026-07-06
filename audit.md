@@ -78,6 +78,12 @@ DROP POLICY IF EXISTS "Anon can view payments" ON payments;
 
 Lalu sediakan RPC `guardian_lookup(...)` dengan validasi input dan hanya return kolom yang perlu.
 
+Catatan implementasi tambahan:
+- Untuk portal wali, hindari query `select('*')` ke tabel utama dari browser publik.
+- Gunakan RPC/view terkurasi yang hanya mengembalikan data santri yang lolos verifikasi, bukan seluruh dataset.
+- Batasi kolom yang direturn seminimal mungkin untuk kebutuhan portal wali.
+- Pastikan admin memakai policy berbasis role/claim, bukan sekadar `TO authenticated USING (true)`.
+
 ---
 
 ### 2. Policy `authenticated` memberi akses admin penuh ke semua user login

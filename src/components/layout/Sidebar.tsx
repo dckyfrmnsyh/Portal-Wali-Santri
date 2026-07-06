@@ -74,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const wrapperClasses =
     variant === 'mobile'
       ? `w-full h-full ${baseClasses}`          // <-- kunci tinggi drawer
-      : `w-64 shrink-0 min-h-[calc(100vh-4rem)] ${baseClasses}`;
+      : `w-64 shrink-0 h-full ${baseClasses}`;
 
   return (
     <aside id="admin-sidebar" className={wrapperClasses}>

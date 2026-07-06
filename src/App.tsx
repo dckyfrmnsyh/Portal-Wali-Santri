@@ -179,26 +179,52 @@ export default function App() {
     }
   };
 
-  // 2. Admin: Validate/Approve manual transfer confirmation
-  const handleApprovePayment = async (paymentId: string) => { // paymentId is UUID
-    const { error } = await supabase.rpc('approve_payment', { p_payment_id: paymentId });
+  // 2. Admin: Validate/Approve manual transfer confirmation (secured with is_admin check)
+  const handleApprovePayment = async (paymentId: string) => {
+    const { data, error } = await supabase.rpc('approve_payment', { p_payment_id: paymentId });
     if (error) {
       console.error("Approve payment error:", error);
-      alert("Gagal menyetujui pembayaran");
-    } else {
-      fetchData();
+      alert("Gagal menyetujui pembayaran: " + error.message);
+      return;
     }
+    if (data && !data.success) {
+      const code = data.code || '';
+      if (code === 'ADMIN_ONLY') {
+        alert("Anda tidak memiliki izin untuk menyetujui pembayaran.");
+      } else if (code === 'INVALID_STATUS') {
+        alert(`Tidak dapat menyetujui pembayaran dengan status: ${data.current_status}`);
+      } else if (code === 'NOT_FOUND') {
+        alert("Pembayaran tidak ditemukan.");
+      } else {
+        alert(data.error || "Gagal menyetujui pembayaran");
+      }
+      return;
+    }
+    fetchData();
   };
 
-  // 3. Admin: Reject manual transfer confirmation
-  const handleRejectPayment = async (paymentId: string, reason: string) => { // paymentId is UUID
-    const { error } = await supabase.rpc('reject_payment', { p_payment_id: paymentId, p_reason: reason });
+  // 3. Admin: Reject manual transfer confirmation (secured with is_admin check)
+  const handleRejectPayment = async (paymentId: string, reason: string) => {
+    const { data, error } = await supabase.rpc('reject_payment', { p_payment_id: paymentId, p_reason: reason });
     if (error) {
       console.error("Reject payment error:", error);
-      alert("Gagal menolak pembayaran");
-    } else {
-      fetchData();
+      alert("Gagal menolak pembayaran: " + error.message);
+      return;
     }
+    if (data && !data.success) {
+      const code = data.code || '';
+      if (code === 'ADMIN_ONLY') {
+        alert("Anda tidak memiliki izin untuk menolak pembayaran.");
+      } else if (code === 'REASON_REQUIRED') {
+        alert("Alasan penolakan wajib diisi (minimal 3 karakter).");
+      } else if (code === 'NOT_FOUND') {
+        alert("Pembayaran tidak ditemukan.");
+      } else {
+        alert(data.error || "Gagal menolak pembayaran");
+      }
+      return;
+    }
+    fetchData();
   };
 
   // 4. Admin: Add Student Profile

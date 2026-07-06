@@ -76,7 +76,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
   // Pengeluaran Uang Makan Bulan Ini (Uang makan / catering expense completed in June 2026)
   const totalMealExpenseBulanIni = mealFinance
-    .filter(f => f.type === 'expense' && f.status === 'completed' && (f.date.includes('2026-06') || f.notes.toLowerCase().includes('juni')))
+    .filter(f => f.type === 'expense' && f.status === 'completed' && (f.date.includes('2026-06') || (f.description || '').toLowerCase().includes('juni')))
     .reduce((acc, f) => acc + f.amount, 0);
 
   // Get latest 5 payments
