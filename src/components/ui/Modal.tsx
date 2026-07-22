@@ -6,10 +6,20 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  size?: 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'lg' }) => {
   if (!isOpen) return null;
+
+  const sizeClasses: Record<string, string> = {
+    md: 'md:max-w-md',
+    lg: 'md:max-w-lg',
+    xl: 'md:max-w-xl',
+    '2xl': 'md:max-w-2xl',
+    '3xl': 'md:max-w-3xl',
+    '4xl': 'md:max-w-4xl'
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4">
@@ -20,7 +30,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
       />
 
       {/* Modal Card */}
-      <div className="relative bg-white shadow-xl w-screen h-screen md:w-auto md:h-auto md:max-w-lg md:rounded-xl border-0 md:border border-slate-100 z-10 overflow-hidden transform transition-all flex flex-col max-h-screen md:max-h-[90vh]">
+      <div className={`relative bg-white shadow-xl w-screen h-screen md:w-full md:h-auto ${sizeClasses[size]} md:rounded-xl border-0 md:border border-slate-100 z-10 overflow-hidden transform transition-all flex flex-col max-h-screen md:max-h-[90vh]`}>
         {/* Header */}
         <div className="px-4 md:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="font-bold text-slate-800 text-lg">{title}</h3>

@@ -5,9 +5,17 @@ import logoResmi from '../assets/logo_resmi.png';
 
 interface FooterProps {
   onSelectRole: (role: 'guardian' | 'admin') => void;
+  webConfig?: Record<string, string>;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onSelectRole }) => {
+export const Footer: React.FC<FooterProps> = ({ onSelectRole, webConfig }) => {
+  const schoolName = webConfig?.schoolName || siteConfig.schoolName;
+  const schoolShortName = webConfig?.schoolShortName || siteConfig.schoolShortName;
+  const locationShort = webConfig?.locationShort || siteConfig.locationShort;
+  const location = webConfig?.location || siteConfig.location;
+  const adminPhone = webConfig?.adminPhone || siteConfig.adminPhone;
+  const email = webConfig?.email || siteConfig.email;
+
   return (
     <footer className="bg-emerald-950 text-white pt-16 pb-8 border-t border-emerald-900 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -23,10 +31,10 @@ export const Footer: React.FC<FooterProps> = ({ onSelectRole }) => {
               </div>
               <div>
                 <h3 className="text-base font-bold uppercase tracking-wide leading-tight">
-                  {siteConfig.schoolShortName}
+                  {schoolShortName}
                 </h3>
                 <p className="text-amber-400 text-xs font-semibold tracking-wider">
-                  {siteConfig.locationShort}
+                  {locationShort}
                 </p>
               </div>
             </div>
@@ -72,15 +80,15 @@ export const Footer: React.FC<FooterProps> = ({ onSelectRole }) => {
             <ul className="space-y-3.5 text-xs sm:text-sm text-emerald-200/85">
               <li className="flex items-start space-x-2.5">
                 <MapPin className="w-4.5 h-4.5 text-amber-400 mt-0.5 shrink-0" />
-                <span>{siteConfig.location}</span>
+                <span>{location}</span>
               </li>
               <li className="flex items-center space-x-2.5">
                 <Phone className="w-4.5 h-4.5 text-amber-400 shrink-0" />
-                <span className="font-mono font-bold">{siteConfig.adminPhone}</span>
+                <span className="font-mono font-bold">{adminPhone}</span>
               </li>
               <li className="flex items-center space-x-2.5">
                 <Mail className="w-4.5 h-4.5 text-amber-400 shrink-0" />
-                <span className="font-mono">{siteConfig.email}</span>
+                <span className="font-mono">{email}</span>
               </li>
             </ul>
           </div>
@@ -89,7 +97,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectRole }) => {
         
         {/* Copyright Panel */}
         <div className="pt-8 text-center text-[10px] sm:text-xs text-emerald-200/60 leading-relaxed">
-          <p>© 2026 {siteConfig.schoolName}. Hak Cipta Dilindungi Undang-Undang.</p>
+          <p>© 2026 {schoolName}. Hak Cipta Dilindungi Undang-Undang.</p>
         </div>
 
       </div>

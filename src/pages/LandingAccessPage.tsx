@@ -15,33 +15,47 @@ import { FloatingWhatsApp } from '../components/FloatingWhatsApp';
 
 interface LandingAccessPageProps {
   onSelectRole: (role: 'guardian' | 'admin') => void;
+  webConfig?: Record<string, string>;
+  aboutContent?: any;
+  heroBanners?: any[];
+  programs?: any[];
+  newsList?: any[];
+  galleryList?: any[];
 }
 
-export const LandingAccessPage: React.FC<LandingAccessPageProps> = ({ onSelectRole }) => {
+export const LandingAccessPage: React.FC<LandingAccessPageProps> = ({
+  onSelectRole,
+  webConfig,
+  aboutContent,
+  heroBanners,
+  programs,
+  newsList,
+  galleryList
+}) => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans selection:bg-emerald-600 selection:text-white">
       {/* Header element */}
-      <Header onSelectRole={onSelectRole} />
+      <Header onSelectRole={onSelectRole} webConfig={webConfig} />
       
       {/* Main sections container */}
       <main className="flex-1">
-        <Hero onSelectRole={onSelectRole} />
+        <Hero onSelectRole={onSelectRole} webConfig={webConfig} banners={heroBanners} />
         <QuickAccess onSelectRole={onSelectRole} />
-        <About />
-        <Programs />
+        <About content={aboutContent} webConfig={webConfig} />
+        <Programs programs={programs} />
         <Facilities />
         <Activities />
-        <News />
-        <Gallery />
+        <News articles={newsList} />
+        <Gallery items={galleryList} />
         <PPDB />
-        <Contact />
+        <Contact webConfig={webConfig} />
       </main>
 
       {/* Footer element */}
-      <Footer onSelectRole={onSelectRole} />
+      <Footer onSelectRole={onSelectRole} webConfig={webConfig} />
 
       {/* Floating interactive elements */}
-      <FloatingWhatsApp />
+      <FloatingWhatsApp webConfig={webConfig} />
     </div>
   );
 };

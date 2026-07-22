@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
 
 interface GuardianSearchFormProps {
-  onSearch: (identifier: string, academicYear: string) => void;
+  onSearch: (identifier: string, guardianPhone: string, academicYear: string) => void;
   error?: string;
 }
 
@@ -14,6 +14,7 @@ export const GuardianSearchForm: React.FC<GuardianSearchFormProps> = ({
   error,
 }) => {
   const [identifier, setIdentifier] = useState('');
+  const [guardianPhone, setGuardianPhone] = useState('');
   const [academicYear, setAcademicYear] = useState('2026/2027');
   const [validationError, setValidationError] = useState('');
 
@@ -28,6 +29,7 @@ export const GuardianSearchForm: React.FC<GuardianSearchFormProps> = ({
     setValidationError('');
 
     const cleanIdentifier = identifier.trim();
+    const cleanPhone = guardianPhone.trim();
 
     if (!cleanIdentifier) {
       setValidationError('NISN / NIS tidak boleh kosong.');
@@ -39,12 +41,17 @@ export const GuardianSearchForm: React.FC<GuardianSearchFormProps> = ({
       return;
     }
 
+    if (!cleanPhone) {
+      setValidationError('Nomor Telepon Wali tidak boleh kosong.');
+      return;
+    }
+
     if (!academicYear) {
       setValidationError('Tahun Ajaran wajib dipilih.');
       return;
     }
 
-    onSearch(cleanIdentifier, academicYear);
+    onSearch(cleanIdentifier, cleanPhone, academicYear);
   };
 
   return (
@@ -77,6 +84,18 @@ export const GuardianSearchForm: React.FC<GuardianSearchFormProps> = ({
               setValidationError('');
             }}
             className="font-mono tracking-widest text-center text-lg font-bold py-2.5 text-brand-green-950 border-brand-cream-200 focus:border-brand-green-800"
+          />
+
+          <Input
+            id="guardian-phone"
+            label="Nomor Telepon Wali (Terdaftar)"
+            placeholder="Contoh: 081234567890"
+            value={guardianPhone}
+            onChange={(e) => {
+              setGuardianPhone(e.target.value);
+              setValidationError('');
+            }}
+            className="text-center font-semibold text-brand-green-950 border-brand-cream-200 focus:border-brand-green-800"
           />
 
           <Select

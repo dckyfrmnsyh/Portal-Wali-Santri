@@ -2,7 +2,15 @@ import React from 'react';
 import { MapPin, Phone, Mail, Clock } from 'lucide-react';
 import { siteConfig } from '../data/siteData';
 
-export const Contact: React.FC = () => {
+interface ContactProps {
+  webConfig?: Record<string, string>;
+}
+
+export const Contact: React.FC<ContactProps> = ({ webConfig }) => {
+  const location = webConfig?.location || siteConfig.location;
+  const adminPhone = webConfig?.adminPhone || siteConfig.adminPhone;
+  const email = webConfig?.email || siteConfig.email;
+
   return (
     <section id="kontak" className="py-20 sm:py-24 bg-slate-50 scroll-mt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -36,7 +44,7 @@ export const Contact: React.FC = () => {
                   <div>
                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider">Alamat Lengkap</h4>
                     <p className="text-xs sm:text-sm text-slate-700 font-medium mt-1 leading-relaxed">
-                      {siteConfig.location}
+                      {location}
                     </p>
                   </div>
                 </div>
@@ -48,7 +56,7 @@ export const Contact: React.FC = () => {
                   <div>
                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider">Telepon & WhatsApp</h4>
                     <p className="text-xs sm:text-sm text-slate-700 font-mono font-bold mt-1">
-                      {siteConfig.adminPhone} (Humas)
+                      {adminPhone} (Humas)
                     </p>
                   </div>
                 </div>
@@ -60,7 +68,7 @@ export const Contact: React.FC = () => {
                   <div>
                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider">Surel Resmi</h4>
                     <p className="text-xs sm:text-sm text-slate-700 font-medium mt-1 font-mono">
-                      {siteConfig.email}
+                      {email}
                     </p>
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Edit2, Trash2, ShieldAlert, AlertCircle, Search, SlidersHorizontal, CheckSquare, XCircle, Upload, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Student } from '../../types/student';
@@ -10,6 +10,7 @@ import { Select } from '../../components/ui/Select';
 import { ExportButton } from '../../components/ui/ExportButton';
 import { getStudentStatusLabel, getStudentStatusColor } from '../../utils/statusHelper';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { supabase } from '../../lib/supabase';
 
 interface StudentManagementPageProps {
   students: Student[];
@@ -32,13 +33,38 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
   const [name, setName] = useState('');
   const [nisn, setNisn] = useState('');
   const [nis, setNis] = useState('');
-  const [grade, setGrade] = useState('10-A SMA');
+  const [grade, setGrade] = useState('');
+  const [academicYear, setAcademicYear] = useState('');
   const [guardianName, setGuardianName] = useState('');
   const [guardianPhone, setGuardianPhone] = useState('');
   const [address, setAddress] = useState('');
   const [status, setStatus] = useState<'active' | 'graduated' | 'inactive'>('active');
   const [sppAmount, setSppAmount] = useState<number | undefined>(undefined); // New state for sppAmount
   const [error, setError] = useState('');
+
+  // Dropdown list states loaded from Supabase
+  const [classesList, setClassesList] = useState<any[]>([]);
+  const [academicYearsList, setAcademicYearsList] = useState<any[]>([]);
+
+  const fetchDropdownData = async () => {
+    try {
+      const [{ data: cData }, { data: ayData }] = await Promise.all([
+        supabase.from('classes').select('*').order('name'),
+        supabase.from('academic_years').select('*').order('name', { ascending: false })
+      ]);
+      if (cData) setClassesList(cData);
+      if (ayData) setAcademicYearsList(ayData);
+      
+      if (cData && cData.length > 0) setGrade(cData[0].name);
+      if (ayData && ayData.length > 0) setAcademicYear(ayData[0].name);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchDropdownData();
+  }, []);
 
   // Search & Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,7 +76,8 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
     setName('');
     setNisn('');
     setNis('');
-    setGrade('10-A SMA');
+    if (classesList.length > 0) setGrade(classesList[0].name);
+    if (academicYearsList.length > 0) setAcademicYear(academicYearsList[0].name);
     setGuardianName('');
     setGuardianPhone('');
     setAddress('');
@@ -66,6 +93,7 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
     setNisn(student.nisn);
     setNis(student.nis || '');
     setGrade(student.grade);
+    setAcademicYear(student.academicYear || '');
     setGuardianName(student.guardianName);
     setGuardianPhone(student.guardianPhone);
     setAddress(student.address);
@@ -225,6 +253,7 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
       nisn: nisn.trim(),
       nis: nis.trim(),
       grade,
+      academicYear,
       guardianName: guardianName.trim(),
       guardianPhone: guardianPhone.trim(),
       address: address.trim(),
@@ -572,13 +601,34 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Select
-                id="student-grade"
-                label="Kelas"
-                options={gradeOptions}
-                value={grade}
-                onChange={(e) => setGrade(e.target.value)}
-              />
+              <div className="space-y-1.5">
+                <label htmlFor="student-grade" className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">Kelas</label>
+                <select
+                  id="student-grade"
+                  className="block w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:outline-none focus:border-brand-green-900"
+                  value={grade}
+                  onChange={(e) => setGrade(e.target.value)}
+                  required
+                >
+                  {classesList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="student-ay" className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">Tahun Ajaran</label>
+                <select
+                  id="student-ay"
+                  className="block w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:outline-none focus:border-brand-green-900"
+                  value={academicYear}
+                  onChange={(e) => setAcademicYear(e.target.value)}
+                  required
+                >
+                  {academicYearsList.map(ay => <option key={ay.id} value={ay.name}>{ay.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Select
                 id="student-status"
                 label="Status Akademik"
@@ -586,16 +636,15 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
                 value={status}
                 onChange={(e) => setStatus(e.target.value as any)}
               />
+              <Input
+                id="student-spp-amount"
+                label="Nominal SPP Per Santri (Opsional)"
+                type="number"
+                placeholder="Contoh: 500000"
+                value={sppAmount === undefined ? '' : sppAmount}
+                onChange={(e) => setSppAmount(e.target.value === '' ? undefined : Number(e.target.value))}
+              />
             </div>
-
-            <Input
-              id="student-spp-amount"
-              label="Nominal SPP Per Santri (Opsional)"
-              type="number"
-              placeholder="Contoh: 500000"
-              value={sppAmount === undefined ? '' : sppAmount}
-              onChange={(e) => setSppAmount(e.target.value === '' ? undefined : Number(e.target.value))}
-            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input

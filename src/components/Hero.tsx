@@ -4,9 +4,22 @@ import { siteConfig } from '../data/siteData';
 
 interface HeroProps {
   onSelectRole: (role: 'guardian' | 'admin') => void;
+  webConfig?: Record<string, string>;
+  banners?: any[];
 }
 
-export const Hero: React.FC<HeroProps> = ({ onSelectRole }) => {
+export const Hero: React.FC<HeroProps> = ({ onSelectRole, webConfig, banners }) => {
+  const activeStudents = webConfig?.activeStudents || siteConfig.stats.activeStudents;
+  const teachersCount = webConfig?.teachersCount || siteConfig.stats.teachersCount;
+  const narcoticsFree = webConfig?.narcoticsFree || siteConfig.stats.narcoticsFree;
+
+  const currentBanner = banners && banners.length > 0 ? banners[0] : null;
+  const heroTitle = currentBanner?.title || "Membentuk Generasi Qur’ani, Berilmu, Berakhlak, dan Siap Mengabdi";
+  const heroSubtitle = currentBanner?.subtitle || "Pondok Pesantren Khairaat Tana Tidung hadir sebagai lembaga pendidikan Islam yang terintegrasi, memadukan sains, khazanah kitab kuning, program tahfidz Al-Qur'an, dan pembiasaan adab islami harian.";
+  const heroImage = currentBanner?.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=600";
+  const ctaText = currentBanner?.cta_text || "Daftar PPDB Online";
+  const ctaUrl = currentBanner?.cta_url || "#ppdb";
+
   return (
     <section
       id="beranda"
@@ -27,19 +40,19 @@ export const Hero: React.FC<HeroProps> = ({ onSelectRole }) => {
             </span>
             
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight text-white font-serif">
-              Membentuk Generasi <span className="text-amber-400">Qur’ani</span>, Berilmu, Berakhlak, dan Siap Mengabdi
+              {heroTitle}
             </h2>
             
             <p className="text-sm sm:text-base md:text-lg text-emerald-100/90 leading-relaxed max-w-2xl mx-auto lg:mx-0 font-sans">
-              Pondok Pesantren Khairaat Tana Tidung hadir sebagai lembaga pendidikan Islam yang terintegrasi, memadukan sains, khazanah kitab kuning, program tahfidz Al-Qur'an, dan pembiasaan adab islami harian.
+              {heroSubtitle}
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
               <a
-                href="#ppdb"
+                href={ctaUrl}
                 className="bg-amber-500 hover:bg-amber-600 text-emerald-950 font-bold px-6 sm:px-8 py-3 sm:py-4 rounded-full text-sm sm:text-sm uppercase tracking-wider transition-all duration-300 shadow-lg hover:shadow-amber-500/20 transform hover:-translate-y-0.5 inline-block text-center min-h-[44px]"
               >
-                Daftar PPDB Online
+                {ctaText}
               </a>
               <button
                 onClick={() => onSelectRole('guardian')}
@@ -54,19 +67,19 @@ export const Hero: React.FC<HeroProps> = ({ onSelectRole }) => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-4 pt-8 border-t border-emerald-800/60 max-w-md mx-auto lg:mx-0">
               <div>
                 <p className="text-2xl sm:text-3xl font-extrabold text-amber-400">
-                  {siteConfig.stats.activeStudents}
+                  {activeStudents}
                 </p>
                 <p className="text-xs text-emerald-200">Santri Aktif</p>
               </div>
               <div>
                 <p className="text-2xl sm:text-3xl font-extrabold text-amber-400">
-                  {siteConfig.stats.teachersCount}
+                  {teachersCount}
                 </p>
                 <p className="text-xs text-emerald-200">Ustadz & Pembina</p>
               </div>
               <div>
                 <p className="text-2xl sm:text-3xl font-extrabold text-amber-400">
-                  {siteConfig.stats.narcoticsFree}
+                  {narcoticsFree}
                 </p>
                 <p className="text-xs text-emerald-200">Bebas Narkoba</p>
               </div>
@@ -79,7 +92,7 @@ export const Hero: React.FC<HeroProps> = ({ onSelectRole }) => {
               <div className="absolute inset-0 bg-gradient-to-tr from-amber-500 to-emerald-700 rounded-3xl transform rotate-3 scale-[1.02] opacity-20"></div>
               <div className="relative rounded-2xl overflow-hidden shadow-2xl border-4 border-emerald-800/80 aspect-[4/3] bg-emerald-900">
                 <img
-                  src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=600"
+                  src={heroImage}
                   alt="Santri Khairaat mengaji Al-Quran bersama"
                   className="w-full h-auto object-cover opacity-95 hover:scale-105 transition-transform duration-700"
                 />

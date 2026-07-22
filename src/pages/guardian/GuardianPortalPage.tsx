@@ -28,6 +28,7 @@ interface GuardianPortalPageProps {
     notes: string;
   }) => void;
   onBackToLanding: () => void;
+  onSearchLookup?: (identifier: string, guardianPhone: string, academicYear: string) => Promise<{ success: boolean; student?: Student; bills?: SppBill[]; error?: string }>;
 }
 
 export const GuardianPortalPage: React.FC<GuardianPortalPageProps> = ({
@@ -35,8 +36,10 @@ export const GuardianPortalPage: React.FC<GuardianPortalPageProps> = ({
   bills,
   onAddPayment,
   onBackToLanding,
+  onSearchLookup,
 }) => {
   const [activeStudent, setActiveStudent] = useState<Student | null>(null);
+  const [studentBills, setStudentBills] = useState<SppBill[]>([]);
   const [searchError, setSearchError] = useState<string>('');
   const [lastSearchedIdentifier, setLastSearchedIdentifier] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>('2026/2027');
@@ -50,23 +53,39 @@ export const GuardianPortalPage: React.FC<GuardianPortalPageProps> = ({
   // Success indicator
   const [successMessage, setSuccessMessage] = useState<string>('');
 
-  const handleSearch = (identifier: string, academicYear: string) => {
+  const handleSearch = async (identifier: string, guardianPhone: string, academicYear: string) => {
     setLastSearchedIdentifier(identifier);
     setSelectedYear(academicYear);
+    setSearchError('');
 
-    // Find student matching NISN or NIS
-    const found = students.find((s) => {
-      const matchId = s.nisn === identifier || s.nis === identifier;
-      const matchYear = !s.academicYear || s.academicYear === academicYear;
-      return matchId && matchYear && s.status === 'active';
-    });
-
-    if (found) {
-      setActiveStudent(found);
-      setSearchError('');
+    if (onSearchLookup) {
+      const res = await onSearchLookup(identifier, guardianPhone, academicYear);
+      if (res.success && res.student) {
+        setActiveStudent(res.student);
+        setStudentBills(res.bills || []);
+        setSearchError('');
+      } else {
+        setActiveStudent(null);
+        setStudentBills([]);
+        setSearchError(res.error || 'Santri dengan NISN/NIS dan nomor telepon wali tersebut tidak ditemukan.');
+      }
     } else {
-      setActiveStudent(null);
-      setSearchError('Santri dengan NISN/NIS tersebut tidak ditemukan di Tahun Ajaran yang dipilih.');
+      // Fallback
+      const found = students.find((s) => {
+        const matchId = s.nisn === identifier || s.nis === identifier;
+        const matchYear = !s.academicYear || s.academicYear === academicYear;
+        return matchId && matchYear && s.status === 'active';
+      });
+
+      if (found) {
+        setActiveStudent(found);
+        setStudentBills(bills.filter((b) => b.studentId === found.id));
+        setSearchError('');
+      } else {
+        setActiveStudent(null);
+        setStudentBills([]);
+        setSearchError('Santri dengan NISN/NIS tersebut tidak ditemukan di Tahun Ajaran yang dipilih.');
+      }
     }
   };
 
@@ -102,7 +121,7 @@ export const GuardianPortalPage: React.FC<GuardianPortalPageProps> = ({
   };
 
   // Filter bills for selected student
-  const studentBills = activeStudent ? bills.filter((b) => b.studentId === activeStudent.id) : [];
+  const displayBills = studentBills.length > 0 ? studentBills : (activeStudent ? bills.filter((b) => b.studentId === activeStudent.id) : []);
 
   return (
     <div id="guardian-portal-main" className="space-y-8 animate-fade-in px-4 sm:px-6">
@@ -148,6 +167,7 @@ export const GuardianPortalPage: React.FC<GuardianPortalPageProps> = ({
             <button
               onClick={() => {
                 setActiveStudent(null);
+                setStudentBills([]);
                 setSuccessMessage('');
               }}
               className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-green-900 hover:text-brand-green-950 transition-all uppercase tracking-wider cursor-pointer"
@@ -165,14 +185,14 @@ export const GuardianPortalPage: React.FC<GuardianPortalPageProps> = ({
           <GuardianStudentCard student={activeStudent} />
 
           {/* Ringkasan SPP */}
-          <GuardianSppSummary bills={studentBills} />
+          <GuardianSppSummary bills={displayBills} />
 
           {/* Main Work Area Split Layout (RESPONSIVE: stack di mobile) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             {/* Left Column: Tables & History Reports */}
             <div className="lg:col-span-2 space-y-8">
               <GuardianSppTable
-                bills={studentBills}
+                bills={displayBills}
                 academicYear={activeStudent.academicYear || selectedYear}
                 onOpenInstallments={(bill) => {
                   setSelectedBillForInstallments(bill);
@@ -185,7 +205,7 @@ export const GuardianPortalPage: React.FC<GuardianPortalPageProps> = ({
               />
 
               <GuardianYearlyReport
-                bills={studentBills}
+                bills={displayBills}
                 academicYear={activeStudent.academicYear || selectedYear}
               />
             </div>

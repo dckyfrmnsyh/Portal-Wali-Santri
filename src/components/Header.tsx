@@ -5,10 +5,14 @@ import logoResmi from '../assets/logo_resmi.png';
 
 interface HeaderProps {
   onSelectRole: (role: 'guardian' | 'admin') => void;
+  webConfig?: Record<string, string>;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onSelectRole }) => {
+export const Header: React.FC<HeaderProps> = ({ onSelectRole, webConfig }) => {
   const [isOpen, setIsOpen] = useState(false);
+
+  const schoolShortName = webConfig?.schoolShortName || siteConfig.schoolShortName;
+  const locationShort = webConfig?.locationShort || siteConfig.locationShort;
 
   const navLinks = [
     { label: 'Beranda', href: '#beranda' },
@@ -34,10 +38,10 @@ export const Header: React.FC<HeaderProps> = ({ onSelectRole }) => {
             </div>
             <div>
               <h1 className="text-white font-bold text-sm sm:text-base tracking-wide leading-tight uppercase group-hover:text-amber-400 transition-colors">
-                {siteConfig.schoolShortName}
+                {schoolShortName}
               </h1>
               <p className="text-amber-400 text-xs font-semibold tracking-wider">
-                {siteConfig.locationShort}
+                {locationShort}
               </p>
             </div>
           </a>

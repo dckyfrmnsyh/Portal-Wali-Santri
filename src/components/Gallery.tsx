@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 
-export const Gallery: React.FC = () => {
+interface GalleryProps {
+  items?: any[];
+}
+
+export const Gallery: React.FC<GalleryProps> = ({ items }) => {
   const [activeCategory, setActiveCategory] = useState<string>('semua');
 
   const categories = [
@@ -10,7 +14,7 @@ export const Gallery: React.FC = () => {
     { key: 'ekstra', label: 'Ekstra' },
   ];
 
-  const galleryItems = [
+  const defaultItems = [
     {
       category: 'belajar',
       image: 'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?auto=format&fit=crop&q=80&w=600',
@@ -29,7 +33,6 @@ export const Gallery: React.FC = () => {
       title: 'Latihan Seni Kaligrafi Islam',
       label: 'Ekstra'
     },
-    // Adding extra aesthetic placeholder items to make a richer grid
     {
       category: 'belajar',
       image: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&q=80&w=600',
@@ -50,7 +53,9 @@ export const Gallery: React.FC = () => {
     }
   ];
 
-  const filteredItems = galleryItems.filter(item => {
+  const rawItems = items && items.length > 0 ? items : defaultItems;
+
+  const filteredItems = rawItems.filter(item => {
     return activeCategory === 'semua' || item.category === activeCategory;
   });
 
@@ -91,26 +96,32 @@ export const Gallery: React.FC = () => {
 
         {/* Gallery Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" id="gallery-grid">
-          {filteredItems.map((item, idx) => (
-            <div
-              key={idx}
-              className="gallery-item group relative aspect-[4/3] rounded-2xl overflow-hidden shadow-xs bg-slate-200 border border-slate-100 animate-fadeIn"
-            >
-              <img
-                src={item.image}
-                alt={item.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/90 via-emerald-950/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6">
-                <span className="bg-amber-500 text-emerald-950 text-[9px] font-black px-2.5 py-1 rounded uppercase tracking-wider self-start mb-2 shadow-xs">
-                  {item.label}
-                </span>
-                <h4 className="text-white text-sm sm:text-base font-bold font-serif">
-                  {item.title}
-                </h4>
+          {filteredItems.map((item, idx) => {
+            const image = item.image_url || item.image;
+            const title = item.title;
+            const label = item.label || item.category;
+
+            return (
+              <div
+                key={idx}
+                className="gallery-item group relative aspect-[4/3] rounded-2xl overflow-hidden shadow-xs bg-slate-200 border border-slate-100 animate-fadeIn"
+              >
+                <img
+                  src={image}
+                  alt={title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/90 via-emerald-950/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6">
+                  <span className="bg-amber-500 text-emerald-950 text-[9px] font-black px-2.5 py-1 rounded uppercase tracking-wider self-start mb-2 shadow-xs">
+                    {label}
+                  </span>
+                  <h4 className="text-white text-sm sm:text-base font-bold font-serif">
+                    {title}
+                  </h4>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
       </div>

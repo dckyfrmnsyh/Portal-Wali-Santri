@@ -25,6 +25,11 @@ import { MonthlySppReportPage } from './pages/admin/MonthlySppReportPage';
 import { StudentYearlyReportPage } from './pages/admin/StudentYearlyReportPage';
 import { MealFinanceManagementPage } from './pages/admin/MealFinanceManagementPage';
 import { MonthlyMealReportPage } from './pages/admin/MonthlyMealReportPage';
+import { CmsSettingsPage } from './pages/admin/CmsSettingsPage';
+import { PpdbRegistrationsPage } from './pages/admin/PpdbRegistrationsPage';
+import { MediaLibrary } from './pages/admin/MediaLibrary';
+import { ContactMessagesPage } from './pages/admin/ContactMessagesPage';
+import { FaqManagementPage } from './pages/admin/FaqManagementPage';
 
 // Helper to convert snake_case DB objects to camelCase frontend models
 const toStudent = (db: any): Student => ({
@@ -64,6 +69,50 @@ export default function App() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [mealFinance, setMealFinance] = useState<MealFinance[]>([]);
 
+  // CMS state
+  const [webConfig, setWebConfig] = useState<Record<string, string>>({});
+  const [aboutContent, setAboutContent] = useState<any>(null);
+  const [heroBanners, setHeroBanners] = useState<any[]>([]);
+  const [programs, setPrograms] = useState<any[]>([]);
+  const [newsList, setNewsList] = useState<any[]>([]);
+  const [galleryList, setGalleryList] = useState<any[]>([]);
+
+  // Fetch public CMS data from Supabase
+  const fetchPublicCMSData = async () => {
+    try {
+      const [
+        { data: configData },
+        { data: aboutData },
+        { data: bannerData },
+        { data: programsData },
+        { data: articlesData },
+        { data: galleryData }
+      ] = await Promise.all([
+        supabase.from('site_config').select('*'),
+        supabase.from('about_content').select('*').maybeSingle(),
+        supabase.from('hero_banners').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
+        supabase.from('programs_data').select('*').order('sort_order', { ascending: true }),
+        supabase.from('news_articles').select('*').eq('status', 'published').order('created_at', { ascending: false }),
+        supabase.from('gallery_items').select('*').order('sort_order', { ascending: true })
+      ]);
+
+      if (configData) {
+        const configMap: Record<string, string> = {};
+        configData.forEach((item: any) => {
+          configMap[item.key] = item.value;
+        });
+        setWebConfig(configMap);
+      }
+      if (aboutData) setAboutContent(aboutData);
+      if (bannerData) setHeroBanners(bannerData);
+      if (programsData) setPrograms(programsData);
+      if (articlesData) setNewsList(articlesData);
+      if (galleryData) setGalleryList(galleryData);
+    } catch (err) {
+      console.error("Error fetching public CMS data:", err);
+    }
+  };
+
   // Fetch data from Supabase
   const fetchData = async () => {
     try {
@@ -74,14 +123,41 @@ export default function App() {
         { data: paymentsData },
         { data: mealData }
       ] = await Promise.all([
-        supabase.from('students').select('*'),
+        supabase.from('students').select('id, nisn, nis, name, class_id, academic_year_id, guardian_name, guardian_phone_last4, address, status, spp_amount'),
         supabase.from('spp_bills').select('*'),
         supabase.from('installments').select('*'),
         supabase.from('payments').select('*'),
         supabase.from('meal_finance').select('*')
       ]);
 
-      if (studentsData) setStudents(studentsData.map(toStudent));
+      // Fetch classes and academic_years to map grade and academicYear
+      const [
+        { data: classesData },
+        { data: academicYearsData }
+      ] = await Promise.all([
+        supabase.from('classes').select('*'),
+        supabase.from('academic_years').select('*')
+      ]);
+
+      const classMap = new Map((classesData || []).map(c => [c.id, c.name]));
+      const ayMap = new Map((academicYearsData || []).map(ay => [ay.id, ay.name]));
+
+      if (studentsData) {
+        const mappedStudents = studentsData.map((db: any) => ({
+          id: db.id,
+          nisn: db.nisn,
+          nis: db.nis,
+          name: db.name,
+          grade: classMap.get(db.class_id) || 'Tidak Diketahui',
+          academicYear: ayMap.get(db.academic_year_id) || 'Tidak Diketahui',
+          guardianName: db.guardian_name,
+          guardianPhone: db.guardian_phone_last4 || '',
+          address: db.address,
+          status: db.status,
+          sppAmount: db.spp_amount
+        }));
+        setStudents(mappedStudents);
+      }
       if (billsData && installmentsData) setBills(billsData.map(b => toBill(b, installmentsData)));
       if (paymentsData) setPayments(paymentsData.map(toPayment));
       if (mealData) setMealFinance(mealData.map(toMeal));
@@ -91,6 +167,7 @@ export default function App() {
   };
 
   useEffect(() => {
+    fetchPublicCMSData();
     fetchData();
   }, []);
 
@@ -229,39 +306,90 @@ export default function App() {
 
   // 4. Admin: Add Student Profile
   const handleAddStudent = async (studentData: Omit<Student, 'id'>) => {
-    const { error } = await supabase.from('students').insert([{
-      nisn: studentData.nisn,
-      nis: studentData.nis,
-      name: studentData.name,
-      grade: studentData.grade,
-      academic_year: studentData.academicYear,
-      guardian_name: studentData.guardianName,
-      guardian_phone: studentData.guardianPhone,
-      address: studentData.address,
-      status: studentData.status,
-      spp_amount: studentData.sppAmount // Include spp_amount
-    }]);
-    
-    if (error) console.error("Add student error:", error);
-    else fetchData();
+    try {
+      // Find or create class_id and academic_year_id
+      let classId = '';
+      const { data: classData } = await supabase.from('classes').select('id').eq('name', studentData.grade).maybeSingle();
+      if (classData) {
+        classId = classData.id;
+      } else {
+        const level = studentData.grade.toLowerCase().includes('smp') ? 'SMP' : 'SMA';
+        const { data: newClass } = await supabase.from('classes').insert([{ name: studentData.grade, level }]).select('id').single();
+        if (newClass) classId = newClass.id;
+      }
+
+      let ayId = '';
+      const ayVal = studentData.academicYear || '2026/2027';
+      const { data: ayData } = await supabase.from('academic_years').select('id').eq('name', ayVal).maybeSingle();
+      if (ayData) {
+        ayId = ayData.id;
+      } else {
+        const { data: newAy } = await supabase.from('academic_years').insert([{ name: ayVal, is_active: true }]).select('id').single();
+        if (newAy) ayId = newAy.id;
+      }
+
+      const { error } = await supabase.from('students').insert([{
+        nisn: studentData.nisn,
+        nis: studentData.nis,
+        name: studentData.name,
+        class_id: classId,
+        academic_year_id: ayId,
+        guardian_name: studentData.guardianName,
+        guardian_phone: supabase.rpc('pgp_sym_encrypt', { data: studentData.guardianPhone, key: 'super-secret-khairaat-key' } as any), // Fallback via direct encryption string
+        guardian_phone_last4: studentData.guardianPhone.slice(-4),
+        address: studentData.address,
+        status: studentData.status,
+        spp_amount: studentData.sppAmount || 500000
+      }]);
+      
+      if (error) console.error("Add student error:", error);
+      else fetchData();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // 5. Admin: Update Student Profile
   const handleUpdateStudent = async (updatedStudent: Student) => {
-    const { error } = await supabase.from('students').update({
-      nis: updatedStudent.nis,
-      name: updatedStudent.name,
-      grade: updatedStudent.grade,
-      academic_year: updatedStudent.academicYear,
-      guardian_name: updatedStudent.guardianName,
-      guardian_phone: updatedStudent.guardianPhone,
-      address: updatedStudent.address,
-      status: updatedStudent.status,
-      spp_amount: updatedStudent.sppAmount // Include spp_amount
-    }).eq('id', updatedStudent.id);
-    
-    if (error) console.error("Update student error:", error);
-    else fetchData();
+    try {
+      let classId = '';
+      const { data: classData } = await supabase.from('classes').select('id').eq('name', updatedStudent.grade).maybeSingle();
+      if (classData) {
+        classId = classData.id;
+      } else {
+        const level = updatedStudent.grade.toLowerCase().includes('smp') ? 'SMP' : 'SMA';
+        const { data: newClass } = await supabase.from('classes').insert([{ name: updatedStudent.grade, level }]).select('id').single();
+        if (newClass) classId = newClass.id;
+      }
+
+      let ayId = '';
+      const ayVal = updatedStudent.academicYear || '2026/2027';
+      const { data: ayData } = await supabase.from('academic_years').select('id').eq('name', ayVal).maybeSingle();
+      if (ayData) {
+        ayId = ayData.id;
+      } else {
+        const { data: newAy } = await supabase.from('academic_years').insert([{ name: ayVal, is_active: true }]).select('id').single();
+        if (newAy) ayId = newAy.id;
+      }
+
+      const { error } = await supabase.from('students').update({
+        nis: updatedStudent.nis,
+        name: updatedStudent.name,
+        class_id: classId,
+        academic_year_id: ayId,
+        guardian_name: updatedStudent.guardianName,
+        guardian_phone: supabase.rpc('pgp_sym_encrypt', { data: updatedStudent.guardianPhone, key: 'super-secret-khairaat-key' } as any),
+        guardian_phone_last4: updatedStudent.guardianPhone.slice(-4),
+        address: updatedStudent.address,
+        status: updatedStudent.status,
+        spp_amount: updatedStudent.sppAmount || 500000
+      }).eq('id', updatedStudent.id);
+      
+      if (error) console.error("Update student error:", error);
+      else fetchData();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // 6. Admin: Soft-Deactivate Student Profile
@@ -430,11 +558,85 @@ export default function App() {
     setRole('public');
   };
 
+  // 1b. Guardian: RPC Search Lookup (NISN/NIS + Phone + Academic Year)
+  const handleGuardianSearchLookup = async (identifier: string, guardianPhone: string, academicYear: string) => {
+    try {
+      // Find academic year ID if it matches the string
+      let ayId: string | null = null;
+      const { data: ayData } = await supabase.from('academic_years').select('id').eq('name', academicYear).maybeSingle();
+      if (ayData) ayId = ayData.id;
+
+      const { data, error } = await supabase.rpc('guardian_lookup', {
+        p_identifier: identifier,
+        p_guardian_phone: guardianPhone,
+        p_academic_year_id: ayId
+      });
+
+      if (error) {
+        console.error("guardian_lookup rpc error:", error);
+        return { success: false, error: error.message };
+      }
+
+      if (data && data.success) {
+        // Map to student type
+        const mappedStudent: Student = {
+          id: data.student.id,
+          nisn: data.student.nisn,
+          nis: data.student.nis,
+          name: data.student.name,
+          grade: data.student.grade,
+          academicYear: data.student.academicYear,
+          guardianName: data.student.guardianName,
+          guardianPhone: guardianPhone,
+          address: data.student.address || '',
+          status: data.student.status,
+          sppAmount: data.student.sppAmount
+        };
+
+        // Map bills
+        const mappedBills: SppBill[] = (data.bills || []).map((b: any) => ({
+          id: b.id,
+          studentId: data.student.id,
+          month: b.month,
+          year: b.year,
+          amount: Number(b.amount),
+          paidAmount: Number(b.paid_amount),
+          status: b.status,
+          dueDate: b.due_date,
+          installments: (b.installments || []).map((inst: any) => ({
+            id: inst.id,
+            amount: Number(inst.amount),
+            paymentDate: inst.payment_date,
+            referenceNumber: inst.reference_number,
+            method: inst.method
+          }))
+        }));
+
+        return { success: true, student: mappedStudent, bills: mappedBills };
+      } else {
+        return { success: false, error: data?.error || 'Data tidak ditemukan.' };
+      }
+    } catch (err: any) {
+      console.error("Guardian lookup catch error:", err);
+      return { success: false, error: 'Terjadi kesalahan sistem.' };
+    }
+  };
+
   // --- Render Core Router Engine ---
   const pendingCount = payments.filter((p) => p.status === 'pending_validation').length;
 
   if (role === 'public') {
-    return <LandingAccessPage onSelectRole={setRole} />;
+    return (
+      <LandingAccessPage
+        onSelectRole={setRole}
+        webConfig={webConfig}
+        aboutContent={aboutContent}
+        heroBanners={heroBanners}
+        programs={programs}
+        newsList={newsList}
+        galleryList={galleryList}
+      />
+    );
   }
 
   if (role === 'guardian') {
@@ -450,6 +652,7 @@ export default function App() {
           bills={bills}
           onAddPayment={handleAddPaymentConfirmation}
           onBackToLanding={() => setRole('public')}
+          onSearchLookup={handleGuardianSearchLookup}
         />
       </GuardianLayout>
     );
@@ -542,6 +745,26 @@ export default function App() {
 
         {adminPage === 'report-meal-monthly' && (
           <MonthlyMealReportPage mealFinance={mealFinance} />
+        )}
+
+        {adminPage === 'ppdb-registrations' && (
+          <PpdbRegistrationsPage />
+        )}
+
+        {adminPage === 'media-library' && (
+          <MediaLibrary />
+        )}
+
+        {adminPage === 'cms-settings' && (
+          <CmsSettingsPage />
+        )}
+
+        {adminPage === 'contact-messages' && (
+          <ContactMessagesPage />
+        )}
+
+        {adminPage === 'faq-management' && (
+          <FaqManagementPage />
         )}
       </AdminLayout>
     );

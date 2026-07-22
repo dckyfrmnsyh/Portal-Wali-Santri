@@ -2,10 +2,16 @@ import React from 'react';
 import { Phone } from 'lucide-react';
 import { siteConfig } from '../data/siteData';
 
-export const FloatingWhatsApp: React.FC = () => {
+interface FloatingWhatsAppProps {
+  webConfig?: Record<string, string>;
+}
+
+export const FloatingWhatsApp: React.FC<FloatingWhatsAppProps> = ({ webConfig }) => {
+  const whatsappUrl = webConfig?.whatsappUrl || siteConfig.whatsappUrl;
+
   return (
     <a
-      href={siteConfig.whatsappUrl}
+      href={whatsappUrl}
       target="_blank"
       rel="noreferrer"
       className="fixed bottom-6 right-6 z-50 bg-emerald-600 hover:bg-emerald-500 text-white p-4 rounded-full shadow-2xl hover:shadow-emerald-600/50 transition-all duration-300 transform hover:scale-110 flex items-center justify-center group"

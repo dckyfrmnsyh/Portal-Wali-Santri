@@ -14,6 +14,7 @@ interface DataTableProps<T> {
   searchKeys?: (keyof T)[]; // search across these fields
   pageSize?: number;
   emptyMessage?: string;
+  isLoading?: boolean;
 }
 
 export function DataTable<T extends { id: string }>({
@@ -23,6 +24,7 @@ export function DataTable<T extends { id: string }>({
   searchKeys = [],
   pageSize = 10,
   emptyMessage = 'Tidak ada data ditemukan.',
+  isLoading = false,
 }: DataTableProps<T>) {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -87,7 +89,13 @@ export function DataTable<T extends { id: string }>({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {paginatedData.length > 0 ? (
+            {isLoading ? (
+              <tr>
+                <td colSpan={columns.length} className="px-6 py-12 text-center text-slate-400 text-sm">
+                  Memuat data...
+                </td>
+              </tr>
+            ) : paginatedData.length > 0 ? (
               paginatedData.map((row, index) => (
                 <tr key={row.id || index} className="hover:bg-slate-50/50 transition-colors">
                   {columns.map((col) => (

@@ -1,27 +1,77 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Phone, HelpCircle, ChevronDown, CheckCircle } from 'lucide-react';
 import { siteConfig } from '../data/siteData';
+import { supabase } from '../lib/supabase';
 
 export const PPDB: React.FC = () => {
   // PPDB Form State
   const [studentName, setStudentName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [programOption, setProgramOption] = useState('Pendidikan Keagamaan');
+  const [programOption, setProgramOption] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [programsList, setProgramsList] = useState<any[]>([]);
 
   // FAQ State (tracking open indices)
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const fetchPrograms = async () => {
+    try {
+      const { data } = await supabase.from('programs_data').select('id, title').order('sort_order', { ascending: true });
+      if (data) {
+        setProgramsList(data);
+        if (data.length > 0) setProgramOption(data[0].id);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPrograms();
+  }, []);
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!studentName || !phoneNumber) return;
-    setIsSubmitted(true);
+    if (!studentName || !phoneNumber || !programOption) return;
+
+    setIsLoading(true);
+    try {
+      // 1. Generate Registration Number
+      const regNum = `PSB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      // 2. Insert to ppdb_registrations
+      const { data: reg, error: regErr } = await supabase.from('ppdb_registrations').insert([{
+        registration_number: regNum,
+        full_name: studentName,
+        gender: 'L', // default
+        program_id: programOption
+      }]).select('id').single();
+
+      if (regErr) throw regErr;
+
+      // 3. Encrypt phone and Insert to ppdb_parents
+      const { error: parentErr } = await supabase.from('ppdb_parents').insert([{
+        registration_id: reg.id,
+        parent_phone: supabase.rpc('pgp_sym_encrypt', { data: phoneNumber, key: 'super-secret-khairaat-key' } as any),
+        father_name: 'Wali Santri'
+      }]);
+
+      if (parentErr) throw parentErr;
+
+      setIsSubmitted(true);
+    } catch (err) {
+      console.error("PPDB registration error:", err);
+      alert("Terjadi kesalahan pendaftaran online.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resetForm = () => {
     setStudentName('');
     setPhoneNumber('');
-    setProgramOption('Pendidikan Keagamaan');
+    if (programsList.length > 0) setProgramOption(programsList[0].id);
     setIsSubmitted(false);
   };
 
@@ -167,16 +217,20 @@ export const PPDB: React.FC = () => {
                     onChange={(e) => setProgramOption(e.target.value)}
                     className="w-full border border-slate-200 rounded-lg p-3 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700 bg-white font-medium text-slate-700"
                   >
-                    <option value="Pendidikan Keagamaan">Pendidikan Keagamaan</option>
-                    <option value="Pendidikan Umum (MTs/MA)">Pendidikan Umum (MTs/MA)</option>
-                    <option value="Tahfidz Al-Qur’an">Tahfidz Al-Qur’an</option>
+                    {programsList.map((p) => (
+                      <option key={p.id} value={p.id}>{p.title}</option>
+                    ))}
+                    {programsList.length === 0 && (
+                      <option value="">Tidak ada program aktif</option>
+                    )}
                   </select>
                 </div>
                 <button
                   type="submit"
+                  disabled={isLoading}
                   className="w-full bg-amber-500 hover:bg-amber-600 text-emerald-950 font-black py-3.5 px-4 rounded-xl text-xs uppercase tracking-wider shadow cursor-pointer transition-transform duration-300 transform hover:scale-[1.01]"
                 >
-                  Kirim Pengajuan
+                  {isLoading ? 'Mengirim...' : 'Kirim Pengajuan'}
                 </button>
               </form>
             )}

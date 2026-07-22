@@ -2,8 +2,24 @@ import React from 'react';
 import { CheckCircle } from 'lucide-react';
 import { siteConfig } from '../data/siteData';
 
-export const About: React.FC = () => {
-  const values = [
+interface AboutProps {
+  content?: any;
+  webConfig?: Record<string, string>;
+}
+
+export const About: React.FC<AboutProps> = ({ content, webConfig }) => {
+  const schoolShortName = webConfig?.schoolShortName || siteConfig.schoolShortName;
+
+  const history = content?.history || "Didirikan dengan cita-cita mulia untuk menghadirkan mercusuar pendidikan keislaman yang komprehensif di Kabupaten Tana Tidung, Kalimantan Utara. Sejak awal berdiri, Pondok Pesantren Khairaat mendedikasikan diri untuk membimbing tunas bangsa agar tidak hanya cerdas intelektual, melainkan juga memiliki kepekaan batin (spiritual) yang kokoh berlandaskan paham Ahlussunnah wal Jama'ah.";
+  const vision = content?.vision || "Menjadi lembaga pendidikan Islam unggulan dalam melahirkan generasi Qur'ani yang shalih, cerdas, mandiri, berakhlak mulia, serta siap berkhidmat untuk agama, bangsa, dan negara.";
+  const missionList = content?.mission ? (Array.isArray(content.mission) ? content.mission : JSON.parse(content.mission)) : [
+    "Menyelenggarakan pendidikan formal & non-formal yang berkualitas berbasis nilai Islami.",
+    "Mendidik hafalan Al-Qur'an dan pemahaman isi kandungannya secara benar.",
+    "Menerapkan kurikulum kemandirian melalui pembinaan kecakapan hidup (life skills)."
+  ];
+
+  const rawValues = content?.values ? (Array.isArray(content.values) ? content.values : JSON.parse(content.values)) : null;
+  const values = rawValues || [
     { title: 'Integritas', desc: 'Menjunjung tinggi kebenaran, kejujuran & etika moral.' },
     { title: 'Kemandirian', desc: 'Mampu berpikir kreatif, solutif & hidup mandiri.' },
     { title: 'Kedisiplinan', desc: 'Taat aturan ibadah, KBM & menghargai waktu.' },
@@ -20,7 +36,7 @@ export const About: React.FC = () => {
             Profil Pondok Pesantren
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-emerald-950 mt-3 font-serif">
-            Mengenal Lebih Dekat {siteConfig.schoolShortName}
+            Mengenal Lebih Dekat {schoolShortName}
           </h2>
           <div className="w-20 h-1 bg-amber-500 mx-auto mt-4 rounded-full"></div>
           <p className="text-slate-600 mt-4 text-sm sm:text-base md:text-lg leading-relaxed">
@@ -38,10 +54,7 @@ export const About: React.FC = () => {
               Sejarah Singkat
             </h3>
             <p className="text-emerald-100/90 text-xs sm:text-sm leading-relaxed mb-4">
-              Didirikan dengan cita-cita mulia untuk menghadirkan mercusuar pendidikan keislaman yang komprehensif di Kabupaten Tana Tidung, Kalimantan Utara.
-            </p>
-            <p className="text-emerald-100/90 text-xs sm:text-sm leading-relaxed mb-4">
-              Sejak awal berdiri, Pondok Pesantren Khairaat mendedikasikan diri untuk membimbing tunas bangsa agar tidak hanya cerdas intelektual, melainkan juga memiliki kepekaan batin (spiritual) yang kokoh berlandaskan paham Ahlussunnah wal Jama'ah.
+              {history}
             </p>
             <div className="bg-emerald-800/50 p-4 rounded-xl border border-emerald-700/60 mt-4">
               <p className="text-xs italic text-amber-300">
@@ -60,7 +73,7 @@ export const About: React.FC = () => {
                 <span>Visi Pesantren</span>
               </h4>
               <p className="text-slate-600 text-xs sm:text-sm mt-2 leading-relaxed font-medium">
-                "Menjadi lembaga pendidikan Islam unggulan dalam melahirkan generasi Qur'ani yang shalih, cerdas, mandiri, berakhlak mulia, serta siap berkhidmat untuk agama, bangsa, dan negara."
+                "{vision}"
               </p>
             </div>
 
@@ -71,27 +84,21 @@ export const About: React.FC = () => {
                 <span>Misi Pesantren</span>
               </h4>
               <ul className="text-slate-600 text-xs sm:text-sm mt-3 space-y-2.5 pl-1">
-                <li className="flex items-start space-x-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                  <span>Menyelenggarakan pendidikan formal & non-formal yang berkualitas berbasis nilai Islami.</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                  <span>Mendidik hafalan Al-Qur'an dan pemahaman isi kandungannya secara benar.</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                  <span>Menerapkan kurikulum kemandirian melalui pembinaan kecakapan hidup (life skills).</span>
-                </li>
+                {missionList.map((m: string, idx: number) => (
+                  <li key={idx} className="flex items-start space-x-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <span>{m}</span>
+                  </li>
+                ))}
               </ul>
             </div>
 
             {/* Values Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-2">
-              {values.map((v) => (
+              {values.map((v: any) => (
                 <div key={v.title} className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-xl text-center shadow-2xs hover:bg-emerald-50 hover:border-emerald-200 transition-colors">
                   <h5 className="font-bold text-emerald-900 text-xs uppercase tracking-wider">{v.title}</h5>
-                  <p className="text-slate-500 text-[10px] sm:text-[11px] mt-1 leading-snug">{v.desc}</p>
+                  <p className="text-slate-500 text-[10px] sm:text-[11px] mt-1 leading-snug">{v.desc || v.description}</p>
                 </div>
               ))}
             </div>

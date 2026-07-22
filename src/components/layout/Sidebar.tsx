@@ -64,6 +64,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'report-meal-monthly', label: 'Laporan Uang Makan', icon: Utensils },
       ],
     },
+    {
+      title: 'Penerimaan Murid Baru (PSB)',
+      items: [
+        { id: 'ppdb-registrations', label: 'Kelola PSB / PPDB', icon: Users },
+      ],
+    },
+    {
+      title: 'Pengaturan Konten',
+      items: [
+        { id: 'media-library', label: 'Media Library', icon: LayoutDashboard },
+        { id: 'cms-settings', label: 'CMS Landing Page', icon: LayoutDashboard },
+        { id: 'contact-messages', label: 'Pesan Masuk', icon: Utensils },
+        { id: 'faq-management', label: 'Kelola FAQ', icon: Utensils },
+      ],
+    },
   ];
 
   // ganti baseClasses lama yang ada min-h-screen
