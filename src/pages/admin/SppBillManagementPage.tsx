@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Eye, DollarSign, AlertCircle, Sparkles, CheckSquare as CheckBadgeIcon } from 'lucide-react';
+import { Plus, Eye, DollarSign, AlertCircle, Sparkles, CheckSquare as CheckBadgeIcon, TrendingUp, TrendingDown, Percent, Users } from 'lucide-react';
 import { Student } from '../../types/student';
 import { SppBill } from '../../types/spp';
 import { DataTable } from '../../components/ui/DataTable';
@@ -22,7 +22,7 @@ interface SppBillManagementPageProps {
     dueDate?: string,
     jenjang?: 'all' | 'SMP' | 'SMA',
     grade?: string,
-    useIndividualSpp?: boolean // New parameter
+    useIndividualSpp?: boolean
   ) => void;
   onRecordCashPayment: (billId: string, amount: number, reference: string, date: string) => void;
 }
@@ -33,17 +33,61 @@ export const SppBillManagementPage: React.FC<SppBillManagementPageProps> = ({
   onGenerateBulkBills,
   onRecordCashPayment,
 }) => {
-  // Master Generation Form States
+  const billingStats = useMemo(() => {
+    let totalBill = 0;
+    let totalPaid = 0;
+    bills.forEach((bill) => {
+      totalBill += bill.amount;
+      totalPaid += bill.paidAmount;
+    });
+    const totalSisa = totalBill - totalPaid;
+    const complianceRate = totalBill > 0 ? (totalPaid / totalBill) * 100 : 0;
+    return { totalBill, totalPaid, totalSisa, complianceRate };
+  }, [bills]);
+
   const [academicYear, setAcademicYear] = useState('2026/2027');
   const [genMonth, setGenMonth] = useState('Juli');
   const [genYear, setGenYear] = useState(2026);
   const [jenjang, setJenjang] = useState<'all' | 'SMP' | 'SMA'>('all');
   const [grade, setGrade] = useState('all');
-  const [amount, setAmount] = useState(500000); // Default bulk amount
+  const [amount, setAmount] = useState(500000);
   const [dueDate, setDueDate] = useState('2026-07-10');
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
-  const [useIndividualSpp, setUseIndividualSpp] = useState(false); // New state for individual SPP
+  const [useIndividualSpp, setUseIndividualSpp] = useState(false);
+
+  const checkJenjang = (g: string) => {
+    const gl = g.toLowerCase();
+    if (gl.includes('smp') || gl.includes('vii') || gl.includes('viii') || gl.includes('ix')) {
+      return 'SMP';
+    }
+    return 'SMA';
+  };
+
+  const affectedCount = useMemo(() => {
+    return students.filter((s) => {
+      if (s.status !== 'active') return false;
+      const sj = checkJenjang(s.grade);
+      if (jenjang !== 'all' && sj !== jenjang) return false;
+      if (grade !== 'all' && s.grade !== grade) return false;
+      return true;
+    }).length;
+  }, [students, jenjang, grade]);
+
+  const estimatedTotal = useMemo(() => {
+    if (useIndividualSpp) {
+      return students
+        .filter((s) => {
+          if (s.status !== 'active') return false;
+          const sj = checkJenjang(s.grade);
+          if (jenjang !== 'all' && sj !== jenjang) return false;
+          if (grade !== 'all' && s.grade !== grade) return false;
+          return true;
+        })
+        .reduce((sum, s) => sum + (s.sppAmount || 500000), 0);
+    }
+    return affectedCount * amount;
+  }, [students, jenjang, grade, useIndividualSpp, affectedCount, amount]);
 
   // Selected Batch Modal States (for drill down)
   const [selectedBatch, setSelectedBatch] = useState<any | null>(null);
@@ -101,15 +145,6 @@ export const SppBillManagementPage: React.FC<SppBillManagementPageProps> = ({
     { value: '11 SMA', label: 'Kelas 11 SMA' },
     { value: '12 SMA', label: 'Kelas 12 SMA' },
   ];
-
-  // Map individual student grade to Jenjang string
-  const checkJenjang = (g: string) => {
-    const gl = g.toLowerCase();
-    if (gl.includes('smp') || gl.includes('vii') || gl.includes('viii') || gl.includes('ix')) {
-      return 'SMP';
-    }
-    return 'SMA';
-  };
 
   // Build the Grouped Batch Data
   const batchData = useMemo(() => {
@@ -358,7 +393,48 @@ export const SppBillManagementPage: React.FC<SppBillManagementPageProps> = ({
         <p className="text-xs text-slate-500 mt-0.5">Kelola batasan tarif SPP, pembuatan kartu tagihan bulanan otomatis, dan entri kasir tunai</p>
       </div>
 
-      {/* CREATE BILL FORM (Requested Form Area) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white border border-brand-cream-100 rounded-2xl p-5 shadow-2xs space-y-1.5">
+          <span className="text-[10px] font-black uppercase text-slate-400 block">Total Tagihan Terbit</span>
+          <div className="flex items-center gap-1.5 mt-1">
+            <div className="p-1.5 bg-indigo-50 rounded-lg text-indigo-600">
+              <DollarSign className="h-4 w-4" />
+            </div>
+            <span className="text-base font-black font-mono text-indigo-900">{formatCurrency(billingStats.totalBill)}</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-brand-cream-100 rounded-2xl p-5 shadow-2xs space-y-1.5">
+          <span className="text-[10px] font-black uppercase text-slate-400 block">Realisasi Pembayaran</span>
+          <div className="flex items-center gap-1.5 mt-1">
+            <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-600">
+              <TrendingUp className="h-4 w-4" />
+            </div>
+            <span className="text-base font-black font-mono text-emerald-600">{formatCurrency(billingStats.totalPaid)}</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-brand-cream-100 rounded-2xl p-5 shadow-2xs space-y-1.5">
+          <span className="text-[10px] font-black uppercase text-slate-400 block">Sisa Tunggakan</span>
+          <div className="flex items-center gap-1.5 mt-1">
+            <div className="p-1.5 bg-rose-50 rounded-lg text-rose-600">
+              <TrendingDown className="h-4 w-4" />
+            </div>
+            <span className="text-base font-black font-mono text-rose-600">{formatCurrency(billingStats.totalSisa)}</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-brand-cream-100 rounded-2xl p-5 shadow-2xs space-y-1.5">
+          <span className="text-[10px] font-black uppercase text-slate-400 block">Kepatuhan SPP</span>
+          <div className="flex items-center gap-1.5 mt-1">
+            <div className="p-1.5 bg-amber-50 rounded-lg text-amber-600">
+              <Percent className="h-4 w-4" />
+            </div>
+            <span className="text-base font-black font-mono text-amber-700">{billingStats.complianceRate.toFixed(1)}%</span>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white border border-brand-cream-200 shadow-xs rounded-2xl p-6">
         <div className="flex items-center gap-2 mb-4">
           <div className="p-2 bg-brand-green-50 rounded-xl text-brand-green-900">
@@ -384,7 +460,7 @@ export const SppBillManagementPage: React.FC<SppBillManagementPageProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleGenerateBills} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
+        <form onSubmit={handleGenerateBills} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           <Select
             id="bill-academic-year"
             label="Tahun Ajaran"
@@ -423,8 +499,8 @@ export const SppBillManagementPage: React.FC<SppBillManagementPageProps> = ({
             type="number"
             value={amount}
             onChange={(e) => setAmount(Number(e.target.value))}
-            required={!useIndividualSpp} // Required only if not using individual SPP
-            disabled={useIndividualSpp} // Disable if using individual SPP
+            required={!useIndividualSpp}
+            disabled={useIndividualSpp}
           />
 
           <Input
@@ -436,7 +512,7 @@ export const SppBillManagementPage: React.FC<SppBillManagementPageProps> = ({
             required
           />
 
-          <div className="flex items-center gap-2 md:col-span-3 lg:col-span-3">
+          <div className="flex items-center gap-2 md:col-span-2">
             <input
               type="checkbox"
               id="use-individual-spp"
@@ -449,11 +525,14 @@ export const SppBillManagementPage: React.FC<SppBillManagementPageProps> = ({
             </label>
           </div>
 
-          <div className="md:col-span-3 lg:col-span-3 flex justify-end">
+          <div className="md:col-span-3 flex flex-col md:flex-row items-center justify-between gap-4 mt-2">
+            <div className="text-xs font-medium text-slate-500">
+              Estimasi target: <span className="font-bold text-slate-700">{affectedCount} santri aktif</span>. Estimasi total tagihan: <span className="font-bold text-brand-green-900">{formatCurrency(estimatedTotal)}</span>.
+            </div>
             <Button
               type="submit"
               variant="primary"
-              className="bg-brand-green-900 hover:bg-brand-green-800 text-white font-bold px-6 py-2.5 rounded-xl cursor-pointer flex items-center gap-1.5 text-xs shadow-xs transition-all hover:-translate-y-0.5"
+              className="bg-brand-green-900 hover:bg-brand-green-800 text-white font-bold px-6 py-2.5 rounded-xl cursor-pointer flex items-center gap-1.5 text-xs shadow-xs transition-all hover:-translate-y-0.5 w-full md:w-auto justify-center"
             >
               <Plus className="h-4 w-4" />
               Buat Tagihan SPP

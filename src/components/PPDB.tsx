@@ -37,10 +37,14 @@ export const PPDB: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // 1. Generate Registration Number
+      // 1. Encrypt phone via secure Database RPC first
+      const { data: encryptedPhone, error: encError } = await supabase.rpc('encrypt_val', { p_val: phoneNumber });
+      if (encError) throw encError;
+
+      // 2. Generate Registration Number
       const regNum = `PSB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      // 2. Insert to ppdb_registrations
+      // 3. Insert to ppdb_registrations
       const { data: reg, error: regErr } = await supabase.from('ppdb_registrations').insert([{
         registration_number: regNum,
         full_name: studentName,
@@ -50,10 +54,10 @@ export const PPDB: React.FC = () => {
 
       if (regErr) throw regErr;
 
-      // 3. Encrypt phone and Insert to ppdb_parents
+      // 4. Insert to ppdb_parents using server-encrypted phone
       const { error: parentErr } = await supabase.from('ppdb_parents').insert([{
         registration_id: reg.id,
-        parent_phone: supabase.rpc('pgp_sym_encrypt', { data: phoneNumber, key: 'super-secret-khairaat-key' } as any),
+        parent_phone: encryptedPhone,
         father_name: 'Wali Santri'
       }]);
 

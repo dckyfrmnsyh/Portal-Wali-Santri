@@ -10,6 +10,13 @@ import {
   Utensils,
   PiggyBank,
   LogOut,
+  Compass,
+  Globe,
+  ShieldCheck,
+  Blocks,
+  ListPlus,
+  BookCopy,
+  School,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -65,6 +72,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ],
     },
     {
+      title: 'Pengaturan Akademik',
+      items: [
+        { id: 'academic-years', label: 'Tahun Ajaran', icon: BookCopy },
+        { id: 'classes', label: 'Data Kelas', icon: School },
+      ],
+    },
+    {
       title: 'Penerimaan Murid Baru (PSB)',
       items: [
         { id: 'ppdb-registrations', label: 'Kelola PSB / PPDB', icon: Users },
@@ -74,9 +88,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'Pengaturan Konten',
       items: [
         { id: 'media-library', label: 'Media Library', icon: LayoutDashboard },
-        { id: 'cms-settings', label: 'CMS Landing Page', icon: LayoutDashboard },
-        { id: 'contact-messages', label: 'Pesan Masuk', icon: Utensils },
+        { id: 'contact-messages', label: 'Kelola Kontak', icon: Utensils },
         { id: 'faq-management', label: 'Kelola FAQ', icon: Utensils },
+      ],
+    },
+    {
+      title: 'Pengaturan Website',
+      items: [
+        { id: 'cms-settings', label: 'CMS Landing Page', icon: LayoutDashboard },
+        { id: 'page-builder', label: 'Page Builder', icon: Blocks },
+        { id: 'custom-fields', label: 'Custom Fields', icon: ListPlus },
+        { id: 'nav-menu', label: 'Menu Navigasi', icon: Compass },
+        { id: 'seo-settings', label: 'Pengaturan SEO', icon: Globe },
+      ],
+    },
+    {
+      title: 'Hak Akses',
+      items: [
+        { id: 'rbac', label: 'Peran & Izin', icon: ShieldCheck },
       ],
     },
   ];

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Plus, ArrowDownRight, ArrowUpRight, AlertCircle, Trash2, FileImage, Eye, Upload, Check } from 'lucide-react';
+import { Plus, ArrowDownRight, ArrowUpRight, AlertCircle, Trash2, FileImage, Eye, Upload, Check, PiggyBank, TrendingUp, TrendingDown } from 'lucide-react';
 import { MealFinance } from '../../types/mealFinance';
 import { Student } from '../../types/student';
 import { Button } from '../../components/ui/Button';
@@ -18,7 +18,6 @@ export const MealFinanceManagementPage: React.FC<MealFinanceManagementPageProps>
   onAddMealRecord,
   onDeleteMealRecord,
 }) => {
-  // Current active date context for defaults
   const todayStr = new Date().toISOString().split('T')[0];
 
   // Form states
@@ -339,61 +338,62 @@ export const MealFinanceManagementPage: React.FC<MealFinanceManagementPageProps>
               />
             </div>
 
-            {/* Quantity and Unit Grid */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label htmlFor="meal-form-qty" className="text-[11px] font-bold text-slate-500 block">Kuantitas</label>
-                <input
-                  id="meal-form-qty"
-                  type="number"
-                  placeholder="Contoh: 10"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  className="block w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium font-mono text-slate-700 focus:outline-none focus:border-brand-green-900"
-                  required
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="meal-form-unit" className="text-[11px] font-bold text-slate-500 block">Satuan</label>
-                <input
-                  id="meal-form-unit"
-                  type="text"
-                  placeholder="kg, Karung, Tabung, dll"
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                  className="block w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:outline-none focus:border-brand-green-900"
-                  required
-                />
-              </div>
-            </div>
+            {type === 'expense' && (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label htmlFor="meal-form-qty" className="text-[11px] font-bold text-slate-500 block">Kuantitas</label>
+                    <input
+                      id="meal-form-qty"
+                      type="number"
+                      placeholder="Contoh: 10"
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
+                      className="block w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium font-mono text-slate-700 focus:outline-none focus:border-brand-green-900"
+                      required={type === 'expense'}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="meal-form-unit" className="text-[11px] font-bold text-slate-500 block">Satuan</label>
+                    <input
+                      id="meal-form-unit"
+                      type="text"
+                      placeholder="kg, Karung, Tabung, dll"
+                      value={unit}
+                      onChange={(e) => setUnit(e.target.value)}
+                      className="block w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:outline-none focus:border-brand-green-900"
+                      required={type === 'expense'}
+                    />
+                  </div>
+                </div>
 
-            {/* Price per unit (Harga Satuan) */}
-            <div className="space-y-1">
-              <label htmlFor="meal-form-ppu" className="text-[11px] font-bold text-slate-500 block">Harga Satuan (IDR)</label>
-              <input
-                id="meal-form-ppu"
-                type="number"
-                placeholder="Contoh: 15000"
-                value={pricePerUnit}
-                onChange={(e) => setPricePerUnit(e.target.value)}
-                className="block w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium font-mono text-slate-700 focus:outline-none focus:border-brand-green-900"
-                required
-              />
-            </div>
+                <div className="space-y-1">
+                  <label htmlFor="meal-form-ppu" className="text-[11px] font-bold text-slate-500 block">Harga Satuan (IDR)</label>
+                  <input
+                    id="meal-form-ppu"
+                    type="number"
+                    placeholder="Contoh: 15000"
+                    value={pricePerUnit}
+                    onChange={(e) => setPricePerUnit(e.target.value)}
+                    className="block w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium font-mono text-slate-700 focus:outline-none focus:border-brand-green-900"
+                    required={type === 'expense'}
+                  />
+                </div>
 
-            {/* Supplier Name */}
-            <div className="space-y-1">
-              <label htmlFor="meal-form-supplier" className="text-[11px] font-bold text-slate-500 block">Supplier / Nama Toko Mitra</label>
-              <input
-                id="meal-form-supplier"
-                type="text"
-                placeholder={type === 'income' ? 'Penyetor / Wali Santri' : 'Contoh: Toko Sembako Makmur'}
-                value={supplierName}
-                onChange={(e) => setSupplierName(e.target.value)}
-                className="block w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:outline-none focus:border-brand-green-900"
-                required
-              />
-            </div>
+                <div className="space-y-1">
+                  <label htmlFor="meal-form-supplier" className="text-[11px] font-bold text-slate-500 block">Supplier / Nama Toko Mitra</label>
+                  <input
+                    id="meal-form-supplier"
+                    type="text"
+                    placeholder="Contoh: Toko Sembako Makmur"
+                    value={supplierName}
+                    onChange={(e) => setSupplierName(e.target.value)}
+                    className="block w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:outline-none focus:border-brand-green-900"
+                    required={type === 'expense'}
+                  />
+                </div>
+              </>
+            )}
 
             {/* Nominal (Amount) */}
             <div className="space-y-1">

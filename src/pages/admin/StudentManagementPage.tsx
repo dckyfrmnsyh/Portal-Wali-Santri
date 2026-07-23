@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Edit2, Trash2, ShieldAlert, AlertCircle, Search, SlidersHorizontal, CheckSquare, XCircle, Upload, Download } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { Student } from '../../types/student';
 import { DataTable } from '../../components/ui/DataTable';
 import { Button } from '../../components/ui/Button';
@@ -28,6 +27,7 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false); // State for import modal
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [loadingPhoneId, setLoadingPhoneId] = useState<string | null>(null);
 
   // Form states
   const [name, setName] = useState('');
@@ -55,8 +55,8 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
       if (cData) setClassesList(cData);
       if (ayData) setAcademicYearsList(ayData);
       
-      if (cData && cData.length > 0) setGrade(cData[0].name);
-      if (ayData && ayData.length > 0) setAcademicYear(ayData[0].name);
+      if (cData && cData.length > 0) setGrade(cData[0].id);
+      if (ayData && ayData.length > 0) setAcademicYear(ayData[0].id);
     } catch (err) {
       console.error(err);
     }
@@ -76,8 +76,8 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
     setName('');
     setNisn('');
     setNis('');
-    if (classesList.length > 0) setGrade(classesList[0].name);
-    if (academicYearsList.length > 0) setAcademicYear(academicYearsList[0].name);
+    if (classesList.length > 0) setGrade(classesList[0].id);
+    if (academicYearsList.length > 0) setAcademicYear(academicYearsList[0].id);
     setGuardianName('');
     setGuardianPhone('');
     setAddress('');
@@ -92,8 +92,13 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
     setName(student.name);
     setNisn(student.nisn);
     setNis(student.nis || '');
-    setGrade(student.grade);
-    setAcademicYear(student.academicYear || '');
+    
+    // Find IDs corresponding to names
+    const classObj = classesList.find(c => c.name === student.grade);
+    const ayObj = academicYearsList.find(ay => ay.name === student.academicYear);
+    setGrade(classObj ? classObj.id : '');
+    setAcademicYear(ayObj ? ayObj.id : '');
+
     setGuardianName(student.guardianName);
     setGuardianPhone(student.guardianPhone);
     setAddress(student.address);
@@ -101,6 +106,34 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
     setSppAmount(student.sppAmount); // Set sppAmount for editing
     setError('');
     setIsModalOpen(true);
+  };
+
+  const handleOpenWhatsApp = async (studentId: string) => {
+    setLoadingPhoneId(studentId);
+    try {
+      const { data, error } = await supabase.rpc('get_decrypted_phone_by_student_id', {
+        p_student_id: studentId
+      });
+      
+      if (error) throw error;
+      if (data === 'UNAUTHORIZED') {
+        alert('Anda tidak memiliki otoritas untuk melihat data ini.');
+        return;
+      }
+      if (data === 'NOT_FOUND') {
+        alert('Nomor HP wali tidak ditemukan.');
+        return;
+      }
+      
+      const cleanPhone = data.replace(/[^0-9]/g, '');
+      const formattedPhone = cleanPhone.startsWith('0') ? '62' + cleanPhone.substring(1) : cleanPhone;
+      window.open(`https://wa.me/${formattedPhone}`, '_blank');
+    } catch (err: any) {
+      console.error(err);
+      alert('Gagal mendekripsi nomor telepon: ' + err.message);
+    } finally {
+      setLoadingPhoneId(null);
+    }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -111,9 +144,10 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
     }
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = e.target?.result;
+        const XLSX = await import('xlsx');
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
@@ -178,7 +212,7 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
     reader.readAsArrayBuffer(file);
   };
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     const templateHeaders = [
       'Nama Santri', 'NISN', 'NIS', 'Kelas', 'Nama Wali', 'Nomor WA Wali', 'Alamat', 'Status Santri', 'Nominal SPP'
     ];
@@ -196,24 +230,29 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
       }
     ];
 
-    const worksheet = XLSX.utils.json_to_sheet(templateData, { header: templateHeaders });
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Template Santri');
-    
-    // Set column widths for better readability
-    worksheet['!cols'] = [
-      { wch: 25 }, // Nama Santri
-      { wch: 15 }, // NISN
-      { wch: 10 }, // NIS
-      { wch: 15 }, // Kelas
-      { wch: 25 }, // Nama Wali
-      { wch: 20 }, // Nomor WA Wali
-      { wch: 30 }, // Alamat
-      { wch: 15 }, // Status Santri
-      { wch: 15 }, // Nominal SPP
-    ];
+    try {
+      const XLSX = await import('xlsx');
+      const worksheet = XLSX.utils.json_to_sheet(templateData, { header: templateHeaders });
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Template Santri');
+      
+      // Set column widths for better readability
+      worksheet['!cols'] = [
+        { wch: 25 }, // Nama Santri
+        { wch: 15 }, // NISN
+        { wch: 10 }, // NIS
+        { wch: 15 }, // Kelas
+        { wch: 25 }, // Nama Wali
+        { wch: 20 }, // Nomor WA Wali
+        { wch: 30 }, // Alamat
+        { wch: 15 }, // Status Santri
+        { wch: 15 }, // Nominal SPP
+      ];
 
-    XLSX.writeFile(workbook, 'template_import_santri.xlsx');
+      XLSX.writeFile(workbook, 'template_import_santri.xlsx');
+    } catch (err) {
+      console.error('Gagal mengunduh template:', err);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -387,16 +426,27 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
     {
       key: 'guardianPhone',
       header: 'Nomor WA Wali',
-      render: (row: Student) => (
-        <a 
-          href={`https://wa.me/${row.guardianPhone.replace(/[^0-9]/g, '')}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs font-semibold text-brand-green-800 hover:underline flex items-center gap-1 font-mono"
-        >
-          <span>{row.guardianPhone}</span>
-        </a>
-      ),
+      render: (row: Student) => {
+        const isCurrentlyLoading = loadingPhoneId === row.id;
+        return (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500 font-mono">
+              ****-****-{row.guardianPhone || 'xxxx'}
+            </span>
+            <button
+              onClick={() => handleOpenWhatsApp(row.id)}
+              disabled={isCurrentlyLoading}
+              className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all cursor-pointer ${
+                isCurrentlyLoading
+                  ? 'bg-slate-100 text-slate-400 border-slate-200'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+              }`}
+            >
+              {isCurrentlyLoading ? 'Membuka...' : 'Hubungi'}
+            </button>
+          </div>
+        );
+      },
     },
     {
       key: 'status',
@@ -600,7 +650,7 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label htmlFor="student-grade" className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">Kelas</label>
                 <select
@@ -610,7 +660,7 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
                   onChange={(e) => setGrade(e.target.value)}
                   required
                 >
-                  {classesList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                  {classesList.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
 
@@ -623,7 +673,7 @@ export const StudentManagementPage: React.FC<StudentManagementPageProps> = ({
                   onChange={(e) => setAcademicYear(e.target.value)}
                   required
                 >
-                  {academicYearsList.map(ay => <option key={ay.id} value={ay.name}>{ay.name}</option>)}
+                  {academicYearsList.map(ay => <option key={ay.id} value={ay.id}>{ay.name}</option>)}
                 </select>
               </div>
             </div>

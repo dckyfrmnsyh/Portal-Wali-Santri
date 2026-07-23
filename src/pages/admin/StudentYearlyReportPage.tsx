@@ -155,9 +155,32 @@ export const StudentYearlyReportPage: React.FC<StudentYearlyReportPageProps> = (
     setIsPdfModalOpen(true);
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!activeStudent) return;
-    alert(`📊 Fitur Ekspor Kartu SPP Tahunan ke Excel (.xlsx) untuk santri "${activeStudent.name}" sedang disiapkan.`);
+    if (studentYearlyBills.length === 0) {
+      alert('Tidak ada data untuk diekspor.');
+      return;
+    }
+    const exportData = studentYearlyBills.map((row) => ({
+      'Bulan': row.month,
+      'Tahun': row.year,
+      'Nominal Tagihan': row.amount,
+      'Nominal Terbayar': row.paidAmount,
+      'Sisa Tagihan': row.sisa,
+      'Status': row.statusText,
+      'Tanggal Bayar Terakhir': row.lastPaymentDate,
+      'Keterangan': row.notes,
+    }));
+    try {
+      const XLSX = await import('xlsx');
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Kartu SPP Siswa');
+      const fileName = `Laporan_SPP_${activeStudent.name.replace(/[^a-zA-Z0-9]/g, '_')}_TA_${selectedAcademicYear.replace('/', '_')}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+    } catch (err) {
+      console.error('Gagal mengekspor Excel:', err);
+    }
   };
 
   const academicYearOptions = [
@@ -370,6 +393,34 @@ export const StudentYearlyReportPage: React.FC<StudentYearlyReportPageProps> = (
               <div className="p-3 bg-rose-50 rounded-xl text-rose-600">
                 <Landmark className="h-5 w-5" />
               </div>
+            </div>
+          </div>
+
+          {/* VISUAL TIMELINE */}
+          <div className="bg-white border border-brand-cream-200 shadow-xs rounded-2xl p-6">
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+              <span className="text-sm font-black text-brand-green-950 uppercase tracking-wider block">Lini Masa Pembayaran (Juli - Juni)</span>
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              {studentYearlyBills.map((bill) => {
+                let badgeColor = 'bg-slate-50 text-slate-500 border-slate-200';
+                if (bill.statusText === 'Lunas') badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                if (bill.statusText === 'Cicilan') badgeColor = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                if (bill.statusText === 'Menunggak') badgeColor = 'bg-rose-50 text-rose-700 border-rose-200';
+
+                return (
+                  <div key={bill.id} className={`flex-1 min-w-[80px] p-3 border rounded-xl flex flex-col items-center justify-between text-center transition-all hover:shadow-xs ${badgeColor}`}>
+                    <span className="text-[10px] font-black uppercase tracking-wider">{bill.month}</span>
+                    <span className="text-[9px] font-mono mt-1 block">{formatCurrency(bill.paidAmount)}</span>
+                    <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border mt-2 bg-white/80">
+                      {bill.statusText}
+                    </span>
+                  </div>
+                );
+              })}
+              {studentYearlyBills.length === 0 && (
+                <p className="text-xs text-slate-400 italic">Tidak ada tagihan diterbitkan untuk tahun ajaran terpilih.</p>
+              )}
             </div>
           </div>
 

@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { Calendar, DollarSign, Users, CheckCircle2, AlertCircle, FileText, FileSpreadsheet, Filter, RefreshCw } from 'lucide-react';
-import html2pdf from 'html2pdf.js';
 import { Student } from '../../types/student';
 import { SppBill } from '../../types/spp';
 import { Card } from '../../components/ui/Card';
@@ -13,7 +12,6 @@ interface MonthlySppReportPageProps {
 }
 
 export const MonthlySppReportPage: React.FC<MonthlySppReportPageProps> = ({ students, bills }) => {
-  // Filter States
   const [selectedMonth, setSelectedMonth] = useState<string>('Juli');
   const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>('2026/2027');
   const [selectedJenjang, setSelectedJenjang] = useState<'all' | 'SMP' | 'SMA'>('all');
@@ -487,7 +485,7 @@ export const MonthlySppReportPage: React.FC<MonthlySppReportPageProps> = ({ stud
   };
 
   // Handle PDF export click
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const htmlContent = generatePDFHTML();
     const element = document.createElement('div');
     element.innerHTML = htmlContent;
@@ -504,13 +502,46 @@ export const MonthlySppReportPage: React.FC<MonthlySppReportPageProps> = ({ stud
       jsPDF: { orientation: 'landscape' as const, unit: 'mm', format: 'a4' },
     };
 
-    html2pdf().set(opt).from(element).save();
-    document.body.removeChild(element);
+    try {
+      const html2pdfModule = await import('html2pdf.js');
+      const html2pdf = html2pdfModule.default;
+      html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error('Gagal mengekspor PDF:', err);
+    } finally {
+      document.body.removeChild(element);
+    }
   };
 
-  // Handle mock Excel export click
-  const handleExportExcel = () => {
-    alert('📊 Fitur Ekspor Laporan SPP ke Excel (.xlsx) sedang dipersiapkan.\nSemua data tabel lengkap dengan rumus total akan diunduh secara otomatis.');
+  const handleExportExcel = async () => {
+    if (processedData.length === 0) {
+      alert('Tidak ada data untuk diekspor.');
+      return;
+    }
+    const exportData = processedData.map((row) => ({
+      'Nama Santri': row.studentName,
+      'NISN': row.studentNisn,
+      'Kelas': row.studentGrade,
+      'Jenjang': row.studentJenjang,
+      'Bulan': row.month,
+      'Tahun': row.year,
+      'Nominal SPP': row.amount,
+      'Terbayar': row.paidAmount,
+      'Sisa': row.sisa,
+      'Status': row.statusText,
+      'Jatuh Tempo': row.dueDate,
+    }));
+    try {
+      const XLSX = await import('xlsx');
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Laporan SPP');
+      const monthDisplay = selectedMonth === 'all' ? 'Semua_Bulan' : selectedMonth;
+      const fileName = `Laporan_SPP_${monthDisplay}_${selectedAcademicYear.replace('/', '_')}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+    } catch (err) {
+      console.error('Gagal mengekspor Excel:', err);
+    }
   };
 
   // Reset Filters helper

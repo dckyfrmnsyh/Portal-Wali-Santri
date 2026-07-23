@@ -823,4 +823,31 @@ GRANT EXECUTE ON FUNCTION approve_payment(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION reject_payment(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_decrypted_guardian_phone(BYTEA) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_decrypted_account_number(BYTEA) TO authenticated;
+
+CREATE OR REPLACE FUNCTION get_decrypted_phone_by_student_id(p_student_id UUID)
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_phone BYTEA;
+BEGIN
+  IF NOT is_admin() THEN
+    RETURN 'UNAUTHORIZED';
+  END IF;
+  SELECT guardian_phone INTO v_phone FROM public.students WHERE id = p_student_id;
+  IF v_phone IS NULL THEN
+    RETURN 'NOT_FOUND';
+  END IF;
+  RETURN pgp_sym_decrypt(v_phone, get_encrypt_key());
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION get_decrypted_phone_by_student_id(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION enroll_ppdb_student(UUID, UUID, UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION encrypt_val(p_val TEXT)
+RETURNS BYTEA LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  RETURN pgp_sym_encrypt(p_val, get_encrypt_key());
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION encrypt_val(TEXT) TO anon, authenticated;

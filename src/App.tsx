@@ -12,24 +12,33 @@ import { PublicLayout } from './components/layout/PublicLayout';
 import { GuardianLayout } from './components/layout/GuardianLayout';
 import { AdminLayout } from './components/layout/AdminLayout';
 
-// Page imports
-import { LandingAccessPage } from './pages/LandingAccessPage';
-import { GuardianPortalPage } from './pages/guardian/GuardianPortalPage';
-import { AdminLoginPage } from './pages/admin/AdminLoginPage';
-import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
-import { StudentManagementPage } from './pages/admin/StudentManagementPage';
-import { SppBillManagementPage } from './pages/admin/SppBillManagementPage';
-import { PaymentManagementPage } from './pages/admin/PaymentManagementPage';
-import { ManualPaymentValidationPage } from './pages/admin/ManualPaymentValidationPage';
-import { MonthlySppReportPage } from './pages/admin/MonthlySppReportPage';
-import { StudentYearlyReportPage } from './pages/admin/StudentYearlyReportPage';
-import { MealFinanceManagementPage } from './pages/admin/MealFinanceManagementPage';
-import { MonthlyMealReportPage } from './pages/admin/MonthlyMealReportPage';
-import { CmsSettingsPage } from './pages/admin/CmsSettingsPage';
-import { PpdbRegistrationsPage } from './pages/admin/PpdbRegistrationsPage';
-import { MediaLibrary } from './pages/admin/MediaLibrary';
-import { ContactMessagesPage } from './pages/admin/ContactMessagesPage';
-import { FaqManagementPage } from './pages/admin/FaqManagementPage';
+// Page imports (Lazy-loaded for optimization)
+const LandingAccessPage = React.lazy(() => import('./pages/LandingAccessPage').then(m => ({ default: m.LandingAccessPage })));
+const GuardianPortalPage = React.lazy(() => import('./pages/guardian/GuardianPortalPage').then(m => ({ default: m.GuardianPortalPage })));
+const AdminLoginPage = React.lazy(() => import('./pages/admin/AdminLoginPage').then(m => ({ default: m.AdminLoginPage })));
+const AdminDashboardPage = React.lazy(() => import('./pages/admin/AdminDashboardPage').then(m => ({ default: m.AdminDashboardPage })));
+const StudentManagementPage = React.lazy(() => import('./pages/admin/StudentManagementPage').then(m => ({ default: m.StudentManagementPage })));
+const SppBillManagementPage = React.lazy(() => import('./pages/admin/SppBillManagementPage').then(m => ({ default: m.SppBillManagementPage })));
+const PaymentManagementPage = React.lazy(() => import('./pages/admin/PaymentManagementPage').then(m => ({ default: m.PaymentManagementPage })));
+const ManualPaymentValidationPage = React.lazy(() => import('./pages/admin/ManualPaymentValidationPage').then(m => ({ default: m.ManualPaymentValidationPage })));
+const MonthlySppReportPage = React.lazy(() => import('./pages/admin/MonthlySppReportPage').then(m => ({ default: m.MonthlySppReportPage })));
+const StudentYearlyReportPage = React.lazy(() => import('./pages/admin/StudentYearlyReportPage').then(m => ({ default: m.StudentYearlyReportPage })));
+const MealFinanceManagementPage = React.lazy(() => import('./pages/admin/MealFinanceManagementPage').then(m => ({ default: m.MealFinanceManagementPage })));
+const MonthlyMealReportPage = React.lazy(() => import('./pages/admin/MonthlyMealReportPage').then(m => ({ default: m.MonthlyMealReportPage })));
+const CmsSettingsPage = React.lazy(() => import('./pages/admin/CmsSettingsPage').then(m => ({ default: m.CmsSettingsPage })));
+const PpdbRegistrationsPage = React.lazy(() => import('./pages/admin/PpdbRegistrationsPage').then(m => ({ default: m.PpdbRegistrationsPage })));
+const MediaLibrary = React.lazy(() => import('./pages/admin/MediaLibrary').then(m => ({ default: m.MediaLibrary })));
+const ContactMessagesPage = React.lazy(() => import('./pages/admin/ContactMessagesPage').then(m => ({ default: m.ContactMessagesPage })));
+const FaqManagementPage = React.lazy(() => import('./pages/admin/FaqManagementPage').then(m => ({ default: m.FaqManagementPage })));
+const NavMenuPage = React.lazy(() => import('./pages/admin/NavMenuPage').then(m => ({ default: m.NavMenuPage })));
+const SeoSettingsPage = React.lazy(() => import('./pages/admin/SeoSettingsPage').then(m => ({ default: m.SeoSettingsPage })));
+const RbacPage = React.lazy(() => import('./pages/admin/RbacPage').then(m => ({ default: m.RbacPage })));
+const PageBuilderPage = React.lazy(() => import('./pages/admin/PageBuilderPage').then(m => ({ default: m.PageBuilderPage })));
+const PageEditor = React.lazy(() => import('./pages/admin/PageEditor').then(m => ({ default: m.PageEditor })));
+const DynamicPage = React.lazy(() => import('./pages/public/DynamicPage').then(m => ({ default: m.DynamicPage })));
+const CustomFieldsPage = React.lazy(() => import('./pages/admin/CustomFieldsPage').then(m => ({ default: m.CustomFieldsPage })));
+const AcademicYearsPage = React.lazy(() => import('./pages/admin/AcademicYearsPage').then(m => ({ default: m.AcademicYearsPage })));
+const ClassesPage = React.lazy(() => import('./pages/admin/ClassesPage').then(m => ({ default: m.ClassesPage })));
 
 // Helper to convert snake_case DB objects to camelCase frontend models
 const toStudent = (db: any): Student => ({
@@ -86,14 +95,16 @@ export default function App() {
         { data: bannerData },
         { data: programsData },
         { data: articlesData },
-        { data: galleryData }
+        { data: galleryData },
+        { data: cfValuesData }
       ] = await Promise.all([
         supabase.from('site_config').select('*'),
         supabase.from('about_content').select('*').maybeSingle(),
         supabase.from('hero_banners').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
         supabase.from('programs_data').select('*').order('sort_order', { ascending: true }),
         supabase.from('news_articles').select('*').eq('status', 'published').order('created_at', { ascending: false }),
-        supabase.from('gallery_items').select('*').order('sort_order', { ascending: true })
+        supabase.from('gallery_items').select('*').order('sort_order', { ascending: true }),
+        supabase.from('custom_field_values').select('entity_id, value, custom_fields(field_key)'),
       ]);
 
       if (configData) {
@@ -172,12 +183,29 @@ export default function App() {
   }, []);
 
   // --- Router & Access Role State ---
-  const [role, setRole] = useState<'public' | 'guardian' | 'admin'>('public');
+  const [role, setRole] = useState<'public' | 'guardian' | 'admin' | 'page'>('public');
+  const [pageSlug, setPageSlug] = useState<string>('');
   const [adminPage, setAdminPage] = useState<string>('dashboard');
+  const [editingPageId, setEditingPageId] = useState<string | null>(null);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
 
-  // Check auth session on mount
+  const handleNavigateToPageEditor = (pageId: string | null) => {
+    setEditingPageId(pageId);
+    setAdminPage('page-editor');
+  };
+
+
+  // Check auth session on mount & Handle routing
   useEffect(() => {
+    const path = window.location.pathname;
+    const knownPaths = ['/', '/admin', '/guardian']; // TODO: Sesuaikan jika ada path lain
+
+    if (!knownPaths.includes(path) && path.length > 1) {
+      // Asumsikan ini adalah slug halaman dinamis
+      setPageSlug(path.substring(1)); // Hapus '/' di depan
+      setRole('page');
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAdminLoggedIn(!!session);
     });
@@ -307,35 +335,20 @@ export default function App() {
   // 4. Admin: Add Student Profile
   const handleAddStudent = async (studentData: Omit<Student, 'id'>) => {
     try {
-      // Find or create class_id and academic_year_id
-      let classId = '';
-      const { data: classData } = await supabase.from('classes').select('id').eq('name', studentData.grade).maybeSingle();
-      if (classData) {
-        classId = classData.id;
-      } else {
-        const level = studentData.grade.toLowerCase().includes('smp') ? 'SMP' : 'SMA';
-        const { data: newClass } = await supabase.from('classes').insert([{ name: studentData.grade, level }]).select('id').single();
-        if (newClass) classId = newClass.id;
-      }
-
-      let ayId = '';
-      const ayVal = studentData.academicYear || '2026/2027';
-      const { data: ayData } = await supabase.from('academic_years').select('id').eq('name', ayVal).maybeSingle();
-      if (ayData) {
-        ayId = ayData.id;
-      } else {
-        const { data: newAy } = await supabase.from('academic_years').insert([{ name: ayVal, is_active: true }]).select('id').single();
-        if (newAy) ayId = newAy.id;
-      }
+      // Encrypt phone via secure database RPC
+      const { data: encryptedPhone, error: encError } = await supabase.rpc('encrypt_val', {
+        p_val: studentData.guardianPhone
+      });
+      if (encError) throw encError;
 
       const { error } = await supabase.from('students').insert([{
         nisn: studentData.nisn,
         nis: studentData.nis,
         name: studentData.name,
-        class_id: classId,
-        academic_year_id: ayId,
+        class_id: studentData.grade, // Sekarang langsung memuat UUID kelas
+        academic_year_id: studentData.academicYear, // Sekarang langsung memuat UUID tahun ajaran
         guardian_name: studentData.guardianName,
-        guardian_phone: supabase.rpc('pgp_sym_encrypt', { data: studentData.guardianPhone, key: 'super-secret-khairaat-key' } as any), // Fallback via direct encryption string
+        guardian_phone: encryptedPhone,
         guardian_phone_last4: studentData.guardianPhone.slice(-4),
         address: studentData.address,
         status: studentData.status,
@@ -352,33 +365,19 @@ export default function App() {
   // 5. Admin: Update Student Profile
   const handleUpdateStudent = async (updatedStudent: Student) => {
     try {
-      let classId = '';
-      const { data: classData } = await supabase.from('classes').select('id').eq('name', updatedStudent.grade).maybeSingle();
-      if (classData) {
-        classId = classData.id;
-      } else {
-        const level = updatedStudent.grade.toLowerCase().includes('smp') ? 'SMP' : 'SMA';
-        const { data: newClass } = await supabase.from('classes').insert([{ name: updatedStudent.grade, level }]).select('id').single();
-        if (newClass) classId = newClass.id;
-      }
-
-      let ayId = '';
-      const ayVal = updatedStudent.academicYear || '2026/2027';
-      const { data: ayData } = await supabase.from('academic_years').select('id').eq('name', ayVal).maybeSingle();
-      if (ayData) {
-        ayId = ayData.id;
-      } else {
-        const { data: newAy } = await supabase.from('academic_years').insert([{ name: ayVal, is_active: true }]).select('id').single();
-        if (newAy) ayId = newAy.id;
-      }
+      // Encrypt phone via secure database RPC
+      const { data: encryptedPhone, error: encError } = await supabase.rpc('encrypt_val', {
+        p_val: updatedStudent.guardianPhone
+      });
+      if (encError) throw encError;
 
       const { error } = await supabase.from('students').update({
         nis: updatedStudent.nis,
         name: updatedStudent.name,
-        class_id: classId,
-        academic_year_id: ayId,
+        class_id: updatedStudent.grade, // Sekarang langsung memuat UUID kelas
+        academic_year_id: updatedStudent.academicYear, // Sekarang langsung memuat UUID tahun ajaran
         guardian_name: updatedStudent.guardianName,
-        guardian_phone: supabase.rpc('pgp_sym_encrypt', { data: updatedStudent.guardianPhone, key: 'super-secret-khairaat-key' } as any),
+        guardian_phone: encryptedPhone,
         guardian_phone_last4: updatedStudent.guardianPhone.slice(-4),
         address: updatedStudent.address,
         status: updatedStudent.status,
@@ -625,150 +624,185 @@ export default function App() {
   // --- Render Core Router Engine ---
   const pendingCount = payments.filter((p) => p.status === 'pending_validation').length;
 
-  if (role === 'public') {
-    return (
-      <LandingAccessPage
-        onSelectRole={setRole}
-        webConfig={webConfig}
-        aboutContent={aboutContent}
-        heroBanners={heroBanners}
-        programs={programs}
-        newsList={newsList}
-        galleryList={galleryList}
-      />
-    );
-  }
+  const LoadingFallback = () => (
+    <div className="flex items-center justify-center min-h-[50vh] w-full bg-slate-50/50 rounded-2xl">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-3 border-slate-200 border-t-brand-green-900 rounded-full animate-spin" />
+        <p className="text-xs font-semibold text-slate-500 animate-pulse">Memuat...</p>
+      </div>
+    </div>
+  );
 
-  if (role === 'guardian') {
-    return (
-      <GuardianLayout
-        onBackToLanding={() => setRole('public')}
-        guardianName={
-          students.length > 0 ? "Orang Tua / Wali Santri" : undefined
-        }
-      >
-        <GuardianPortalPage
-          students={students}
-          bills={bills}
-          onAddPayment={handleAddPaymentConfirmation}
-          onBackToLanding={() => setRole('public')}
-          onSearchLookup={handleGuardianSearchLookup}
+  return (
+    <React.Suspense fallback={<LoadingFallback />}>
+      {role === 'public' && (
+        <LandingAccessPage
+          onSelectRole={setRole}
+          webConfig={webConfig}
+          aboutContent={aboutContent}
+          heroBanners={heroBanners}
+          programs={programs}
+          newsList={newsList}
+          galleryList={galleryList}
         />
-      </GuardianLayout>
-    );
-  }
+      )}
 
-  if (role === 'admin') {
-    // Force Authentication if not logged in
-    if (!isAdminLoggedIn) {
-      return (
-        <PublicLayout>
-          <AdminLoginPage
-            onLoginSuccess={handleAdminLogin}
+      {role === 'guardian' && (
+        <GuardianLayout
+          onBackToLanding={() => setRole('public')}
+          guardianName={
+            students.length > 0 ? "Orang Tua / Wali Santri" : undefined
+          }
+        >
+          <GuardianPortalPage
+            students={students}
+            bills={bills}
+            onAddPayment={handleAddPaymentConfirmation}
             onBackToLanding={() => setRole('public')}
+            onSearchLookup={handleGuardianSearchLookup}
           />
-        </PublicLayout>
-      );
-    }
+        </GuardianLayout>
+      )}
 
-    // Authenticated Admin Dashboard Layout Panel
-    return (
-      <AdminLayout
-        currentPage={adminPage}
-        onPageChange={setAdminPage}
-        onLogout={handleAdminLogout}
-        pendingValidationCount={pendingCount}
-      >
-        {adminPage === 'dashboard' && (
-          <AdminDashboardPage
-            students={students}
-            bills={bills}
-            payments={payments}
-            mealFinance={mealFinance}
-            onNavigateTo={setAdminPage}
-          />
-        )}
-        
-        {adminPage === 'students' && (
-          <StudentManagementPage
-            students={students}
-            onAddStudent={handleAddStudent}
-            onUpdateStudent={handleUpdateStudent}
-            onDeleteStudent={handleDeleteStudent}
-          />
-        )}
+      {role === 'admin' && (
+        !isAdminLoggedIn ? (
+          <PublicLayout>
+            <AdminLoginPage
+              onLoginSuccess={handleAdminLogin}
+              onBackToLanding={() => setRole('public')}
+            />
+          </PublicLayout>
+        ) : (
+          <AdminLayout
+            currentPage={adminPage}
+            onPageChange={setAdminPage}
+            onLogout={handleAdminLogout}
+            pendingValidationCount={pendingCount}
+          >
+            {adminPage === 'dashboard' && (
+              <AdminDashboardPage
+                students={students}
+                bills={bills}
+                payments={payments}
+                mealFinance={mealFinance}
+                onNavigateTo={setAdminPage}
+              />
+            )}
+            
+            {adminPage === 'students' && (
+              <StudentManagementPage
+                students={students}
+                onAddStudent={handleAddStudent}
+                onUpdateStudent={handleUpdateStudent}
+                onDeleteStudent={handleDeleteStudent}
+              />
+            )}
 
-        {adminPage === 'bills' && (
-          <SppBillManagementPage
-            students={students}
-            bills={bills}
-            onGenerateBulkBills={handleGenerateBulkBills}
-            onRecordCashPayment={handleRecordCashPayment}
-          />
-        )}
+            {adminPage === 'bills' && (
+              <SppBillManagementPage
+                students={students}
+                bills={bills}
+                onGenerateBulkBills={handleGenerateBulkBills}
+                onRecordCashPayment={handleRecordCashPayment}
+              />
+            )}
 
-        {adminPage === 'payments' && (
-          <PaymentManagementPage
-            students={students}
-            payments={payments}
-            bills={bills}
-            onRecordPayment={handleRecordAdminPayment}
-          />
-        )}
+            {adminPage === 'payments' && (
+              <PaymentManagementPage
+                students={students}
+                payments={payments}
+                bills={bills}
+                onRecordPayment={handleRecordAdminPayment}
+              />
+            )}
 
-        {adminPage === 'validations' && (
-          <ManualPaymentValidationPage
-            students={students}
-            payments={payments}
-            bills={bills}
-            onApprovePayment={handleApprovePayment}
-            onRejectPayment={handleRejectPayment}
-          />
-        )}
+            {adminPage === 'validations' && (
+              <ManualPaymentValidationPage
+                students={students}
+                payments={payments}
+                bills={bills}
+                onApprovePayment={handleApprovePayment}
+                onRejectPayment={handleRejectPayment}
+              />
+            )}
 
-        {adminPage === 'report-spp-monthly' && (
-          <MonthlySppReportPage students={students} bills={bills} />
-        )}
+            {adminPage === 'report-spp-monthly' && (
+              <MonthlySppReportPage students={students} bills={bills} />
+            )}
 
-        {adminPage === 'report-spp-yearly' && (
-          <StudentYearlyReportPage students={students} bills={bills} payments={payments} />
-        )}
+            {adminPage === 'report-spp-yearly' && (
+              <StudentYearlyReportPage students={students} bills={bills} payments={payments} />
+            )}
 
-        {adminPage === 'meal-finance' && (
-          <MealFinanceManagementPage
-            mealFinance={mealFinance}
-            students={students}
-            onAddMealRecord={handleAddMealRecord}
-            onDeleteMealRecord={handleDeleteMealRecord}
-          />
-        )}
+            {adminPage === 'meal-finance' && (
+              <MealFinanceManagementPage
+                mealFinance={mealFinance}
+                students={students}
+                onAddMealRecord={handleAddMealRecord}
+                onDeleteMealRecord={handleDeleteMealRecord}
+              />
+            )}
 
-        {adminPage === 'report-meal-monthly' && (
-          <MonthlyMealReportPage mealFinance={mealFinance} />
-        )}
+            {adminPage === 'report-meal-monthly' && (
+              <MonthlyMealReportPage mealFinance={mealFinance} />
+            )}
 
-        {adminPage === 'ppdb-registrations' && (
-          <PpdbRegistrationsPage />
-        )}
+            {adminPage === 'ppdb-registrations' && (
+              <PpdbRegistrationsPage />
+            )}
 
-        {adminPage === 'media-library' && (
-          <MediaLibrary />
-        )}
+            {adminPage === 'media-library' && (
+              <MediaLibrary />
+            )}
 
-        {adminPage === 'cms-settings' && (
-          <CmsSettingsPage />
-        )}
+            {adminPage === 'cms-settings' && (
+              <CmsSettingsPage />
+            )}
 
-        {adminPage === 'contact-messages' && (
-          <ContactMessagesPage />
-        )}
+            {adminPage === 'contact-messages' && (
+              <ContactMessagesPage />
+            )}
 
-        {adminPage === 'faq-management' && (
-          <FaqManagementPage />
-        )}
-      </AdminLayout>
-    );
-  }
+            {adminPage === 'faq-management' && (
+              <FaqManagementPage />
+            )}
 
-  return null;
+            {adminPage === 'nav-menu' && (
+              <NavMenuPage onRefresh={fetchPublicCMSData} />
+            )}
+
+            {adminPage === 'seo-settings' && (
+              <SeoSettingsPage />
+            )}
+
+            {adminPage === 'rbac' && (
+              <RbacPage />
+            )}
+
+            {adminPage === 'page-builder' && (
+              <PageBuilderPage onNavigateToEditor={handleNavigateToPageEditor} />
+            )}
+
+            {adminPage === 'page-editor' && (
+              <PageEditor pageId={editingPageId} onBack={() => setAdminPage('page-builder')} />
+            )}
+
+            {adminPage === 'custom-fields' && (
+              <CustomFieldsPage onRefresh={fetchPublicCMSData} />
+            )}
+
+            {adminPage === 'academic-years' && (
+              <AcademicYearsPage onRefresh={fetchData} />
+            )}
+
+            {adminPage === 'classes' && (
+              <ClassesPage onRefresh={fetchData} />
+            )}
+          </AdminLayout>
+        )
+      )}
+
+      {role === 'page' && <DynamicPage slug={pageSlug} />}
+    </React.Suspense>
+  );
 }

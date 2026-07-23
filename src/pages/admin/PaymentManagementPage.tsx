@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   DollarSign,
   Bell,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 
 import { Student } from '../../types/student';
@@ -19,6 +21,7 @@ import { Input } from '../../components/ui/Input';
 import { ExportButton } from '../../components/ui/ExportButton';
 
 import { formatCurrency } from '../../utils/formatCurrency';
+import { supabase } from '../../lib/supabase';
 
 interface PaymentManagementPageProps {
   students: Student[];
@@ -35,8 +38,6 @@ interface PaymentManagementPageProps {
 }
 
 const sanitizePhone = (phone: string) => {
-  // WA biasanya butuh digit saja.
-  // Hapus spasi, +, -, dll.
   const digits = phone.replace(/[^\d]/g, '');
   return digits;
 };
@@ -53,7 +54,21 @@ export const PaymentManagementPage: React.FC<PaymentManagementPageProps> = ({
   bills,
   onRecordPayment,
 }) => {
-  // Form state
+  const paymentStats = useMemo(() => {
+    let approved = 0;
+    let cash = 0;
+    let transfer = 0;
+    payments.forEach((p) => {
+      if (p.status === 'approved') {
+        const amt = Number(p.amount || 0);
+        approved += amt;
+        if (p.method === 'cash') cash += amt;
+        if (p.method === 'transfer') transfer += amt;
+      }
+    });
+    return { approved, cash, transfer };
+  }, [payments]);
+
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [selectedBillId, setSelectedBillId] = useState('');
   const [payAmount, setPayAmount] = useState(0);
@@ -63,7 +78,6 @@ export const PaymentManagementPage: React.FC<PaymentManagementPageProps> = ({
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
 
-  // Reminder state
   const [sendingReminderBillId, setSendingReminderBillId] = useState<string | null>(null);
 
   // Active student choices
@@ -227,32 +241,46 @@ export const PaymentManagementPage: React.FC<PaymentManagementPageProps> = ({
     { key: 'adminPencatat', label: 'Admin Pencatat' },
   ];
 
-  const handleSendReminderWA = (row: any) => {
+  const handleSendReminderWA = async (row: any) => {
     const bill: SppBill | undefined = row?.bill;
-    const phone: string = row?.guardianPhone;
-
     if (!bill) return;
-    if (!phone) {
-      alert('Nomor WhatsApp wali santri belum tersedia.');
+
+    if (!row.studentId) {
+      alert('ID santri tidak ditemukan untuk melakukan dekripsi.');
       return;
     }
 
     const remaining = row?.sisaTagihan ?? bill.amount - bill.paidAmount;
     if (remaining <= 0) return;
 
-    const guardianName = row?.guardianName || '';
-    const studentName = row?.studentName || '';
-    const month = bill.month;
-    const year = bill.year;
+    try {
+      const { data: decryptedPhone, error } = await supabase.rpc('get_decrypted_phone_by_student_id', {
+        p_student_id: row.studentId
+      });
 
-    const message =
-      `Assalamu'alaikum Wr. Wb.\n\n` +
-      `${guardianName ? `${guardianName}, ` : ''}kami mengingatkan pembayaran SPP untuk ${studentName} (${month} ${year}).\n` +
-      `Sisa tagihan: ${formatCurrency(remaining)}.\n\n` +
-      `Mohon segera ditindak lanjuti. Terima kasih.\nWassalamu'alaikum Wr. Wb.`;
+      if (error) throw error;
+      if (decryptedPhone === 'UNAUTHORIZED' || decryptedPhone === 'NOT_FOUND') {
+        alert('Gagal mengambil nomor lengkap wali: tidak diizinkan atau tidak ditemukan.');
+        return;
+      }
 
-    const url = buildWhatsAppLink(phone, message);
-    window.open(url, '_blank', 'noopener,noreferrer');
+      const guardianName = row?.guardianName || '';
+      const studentName = row?.studentName || '';
+      const month = bill.month;
+      const year = bill.year;
+
+      const message =
+        `Assalamu'alaikum Wr. Wb.\n\n` +
+        `${guardianName ? `${guardianName}, ` : ''}kami mengingatkan pembayaran SPP untuk ${studentName} (${month} ${year}).\n` +
+        `Sisa tagihan: ${formatCurrency(remaining)}.\n\n` +
+        `Mohon segera ditindak lanjuti. Terima kasih.\nWassalamu'alaikum Wr. Wb.`;
+
+      const url = buildWhatsAppLink(decryptedPhone, message);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err: any) {
+      console.error(err);
+      alert('Gagal memproses pengiriman WhatsApp: ' + err.message);
+    }
   };
 
   // Table columns matching exact Indonesia specification + reminder
@@ -363,20 +391,19 @@ export const PaymentManagementPage: React.FC<PaymentManagementPageProps> = ({
             <button
               type="button"
               disabled={!bill || isPaid || isSending}
-              onClick={() => {
+              onClick={async () => {
                 if (!bill) return;
                 setSendingReminderBillId(bill.id);
                 try {
-                  handleSendReminderWA(row);
+                  await handleSendReminderWA(row);
                 } finally {
-                  // tidak menunggu WA terbuka karena link langsung.
                   setSendingReminderBillId(null);
                 }
               }}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                 !bill || isPaid
                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                  : 'bg-brand-green-800 hover:bg-brand-green-900 text-white'
+                  : 'bg-[#25D366] hover:bg-[#20ba5a] text-white shadow-xs'
               }`}
               title={isPaid ? 'Tagihan sudah lunas' : 'Kirim reminder ke WhatsApp wali'}
             >
@@ -402,6 +429,38 @@ export const PaymentManagementPage: React.FC<PaymentManagementPageProps> = ({
         </div>
 
         <ExportButton data={tableData} filename="pembayaran-spp.csv" headers={exportHeaders} />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white border border-brand-cream-100 rounded-2xl p-5 shadow-2xs space-y-1.5">
+          <span className="text-[10px] font-black uppercase text-slate-400 block">Total SPP Disetujui</span>
+          <div className="flex items-center gap-1.5 mt-1">
+            <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-600">
+              <DollarSign className="h-4 w-4" />
+            </div>
+            <span className="text-base font-black font-mono text-emerald-600">{formatCurrency(paymentStats.approved)}</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-brand-cream-100 rounded-2xl p-5 shadow-2xs space-y-1.5">
+          <span className="text-[10px] font-black uppercase text-slate-400 block">Metode Tunai (Cash)</span>
+          <div className="flex items-center gap-1.5 mt-1">
+            <div className="p-1.5 bg-amber-50 rounded-lg text-amber-600">
+              <Coins className="h-4 w-4" />
+            </div>
+            <span className="text-base font-black font-mono text-amber-700">{formatCurrency(paymentStats.cash)}</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-brand-cream-100 rounded-2xl p-5 shadow-2xs space-y-1.5">
+          <span className="text-[10px] font-black uppercase text-slate-400 block">Metode Transfer</span>
+          <div className="flex items-center gap-1.5 mt-1">
+            <div className="p-1.5 bg-indigo-50 rounded-lg text-indigo-600">
+              <Landmark className="h-4 w-4" />
+            </div>
+            <span className="text-base font-black font-mono text-indigo-900">{formatCurrency(paymentStats.transfer)}</span>
+          </div>
+        </div>
       </div>
 
       {/* PAYMENT ENTRY FORM (Required Input Area) */}

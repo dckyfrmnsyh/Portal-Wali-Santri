@@ -3,8 +3,16 @@ import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { MediaLibrary } from './MediaLibrary';
-import { Image as ImageIcon } from 'lucide-react';
+import { Image as ImageIcon, Divide } from 'lucide-react';
+
+const MediaLibrary = React.lazy(() => import('./MediaLibrary').then(m => ({ default: m.MediaLibrary })));
+
+interface CustomField {
+  id: string;
+  field_key: string;
+  field_label: string;
+  field_type: string;
+}
 
 export const CmsSettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'config' | 'about' | 'banners' | 'programs' | 'news' | 'gallery'>('config');
@@ -55,6 +63,13 @@ export const CmsSettingsPage: React.FC = () => {
   const [gallery, setGallery] = useState<any[]>([]);
   const [newGalleryItem, setNewGalleryItem] = useState({ title: '', image_url: '', category: 'belajar', sort_order: 0 });
 
+  // 7. Custom Fields State
+  const [newsCustomFields, setNewsCustomFields] = useState<CustomField[]>([]);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
+
+  // 8. Editing State
+  const [editingArticleId, setEditingArticleId] = useState<string | null>(null);
+
   const loadData = async () => {
     setIsLoading(true);
     setErrorMsg('');
@@ -66,14 +81,16 @@ export const CmsSettingsPage: React.FC = () => {
         { data: bannerData },
         { data: programsData },
         { data: newsData },
-        { data: galleryData }
+        { data: galleryData },
+        { data: customFieldsData }
       ] = await Promise.all([
         supabase.from('site_config').select('*'),
         supabase.from('about_content').select('*').maybeSingle(),
         supabase.from('hero_banners').select('*').order('sort_order', { ascending: true }),
         supabase.from('programs_data').select('*').order('sort_order', { ascending: true }),
         supabase.from('news_articles').select('*').order('created_at', { ascending: false }),
-        supabase.from('gallery_items').select('*').order('sort_order', { ascending: true })
+        supabase.from('gallery_items').select('*').order('sort_order', { ascending: true }),
+        supabase.from('custom_fields').select('*').eq('entity_type', 'news_articles').order('sort_order'),
       ]);
 
       if (configData) {
@@ -95,6 +112,7 @@ export const CmsSettingsPage: React.FC = () => {
       if (programsData) setProgramsList(programsData);
       if (newsData) setNews(newsData);
       if (galleryData) setGallery(galleryData);
+      if (customFieldsData) setNewsCustomFields(customFieldsData);
     } catch (err: any) {
       setErrorMsg('Gagal memuat data CMS: ' + err.message);
     } finally {
@@ -237,6 +255,45 @@ export const CmsSettingsPage: React.FC = () => {
     } catch (err: any) {
       setErrorMsg('Gagal menghapus: ' + err.message);
       setIsLoading(false);
+    }
+  };
+
+  const resetNewsForm = () => {
+    setNewArticle({ title: '', slug: '', content: '', image_url: '', category: 'Pendidikan', status: 'published' });
+    setCustomFieldValues({});
+    setEditingArticleId(null);
+  };
+
+  const handleEditArticle = async (item: any) => {
+    setEditingArticleId(item.id);
+    setNewArticle({
+      title: item.title || '',
+      slug: item.slug || '',
+      content: item.content || '',
+      image_url: item.image_url || '',
+      category: item.category || 'Pendidikan',
+      status: item.status || 'published',
+    });
+
+    try {
+      const { data, error } = await supabase
+        .from('custom_field_values')
+        .select('value, custom_fields(field_key)')
+        .eq('entity_id', item.id);
+
+      if (error) throw error;
+
+      const valuesMap: Record<string, any> = {};
+      if (data) {
+        data.forEach((val: any) => {
+          if (val.custom_fields && val.custom_fields.field_key) {
+            valuesMap[val.custom_fields.field_key] = val.value;
+          }
+        });
+      }
+      setCustomFieldValues(valuesMap);
+    } catch (err: any) {
+      setErrorMsg('Gagal memuat nilai custom field: ' + err.message);
     }
   };
 
@@ -490,18 +547,51 @@ export const CmsSettingsPage: React.FC = () => {
               e.preventDefault();
               setIsLoading(true);
               try {
-                const { error } = await supabase.from('news_articles').insert([newArticle]);
-                if (error) throw error;
-                setSuccessMsg('Artikel berita berhasil diterbitkan!');
-                setNewArticle({ title: '', slug: '', content: '', image_url: '', category: 'Pendidikan', status: 'published' });
+                let articleId: string;
+
+                if (editingArticleId) {
+                  // Update existing article
+                  const { data, error } = await supabase
+                    .from('news_articles')
+                    .update(newArticle)
+                    .eq('id', editingArticleId)
+                    .select('id')
+                    .single();
+                  if (error) throw error;
+                  articleId = data.id;
+                } else {
+                  // Insert new article
+                  const { data, error } = await supabase
+                    .from('news_articles')
+                    .insert([newArticle])
+                    .select('id')
+                    .single();
+                  if (error) throw error;
+                  articleId = data.id;
+                }
+
+                // Upsert custom field values
+                const valuesToUpsert = newsCustomFields.map(field => ({
+                  custom_field_id: field.id,
+                  entity_id: articleId,
+                  value: customFieldValues[field.field_key] || null,
+                }));
+
+                if (valuesToUpsert.length > 0) {
+                  const { error: valuesError } = await supabase.from('custom_field_values').upsert(valuesToUpsert, { onConflict: 'custom_field_id,entity_id' });
+                  if (valuesError) throw valuesError;
+                }
+
+                setSuccessMsg(`Artikel berita berhasil ${editingArticleId ? 'diperbarui' : 'diterbitkan'}!`);
+                resetNewsForm();
                 loadData();
               } catch (err: any) {
-                setErrorMsg('Gagal memuat berita: ' + err.message);
+                setErrorMsg('Gagal menyimpan berita: ' + err.message);
               } finally {
                 setIsLoading(false);
               }
             }} className="space-y-4 border-b border-slate-100 pb-6">
-              <h4 className="text-xs font-bold text-brand-green-950 uppercase">Tulis Berita Baru</h4>
+              <h4 className="text-xs font-bold text-brand-green-950 uppercase">{editingArticleId ? 'Edit Berita' : 'Tulis Berita Baru'}</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input id="n-title" label="Judul Berita" value={newArticle.title} onChange={(e) => setNewArticle({ ...newArticle, title: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-') })} required />
                 <Input id="n-slug" label="Slug URL" value={newArticle.slug} onChange={(e) => setNewArticle({ ...newArticle, slug: e.target.value })} required />
@@ -530,11 +620,28 @@ export const CmsSettingsPage: React.FC = () => {
                 </div>
                 <Input id="n-cat" label="Kategori" value={newArticle.category} onChange={(e) => setNewArticle({ ...newArticle, category: e.target.value })} required />
               </div>
+              {/* Render Custom Fields */}
+              {newsCustomFields.map(field => (
+                <div key={field.id}>
+                  <Input
+                    id={`cf-${field.field_key}`}
+                    label={field.field_label}
+                    type={field.field_type}
+                    value={customFieldValues[field.field_key] || ''}
+                    onChange={e => setCustomFieldValues({...customFieldValues, [field.field_key]: e.target.value})}
+                  />
+                </div>
+              ))}
               <div className="space-y-1">
                 <label htmlFor="n-content" className="text-xs font-bold text-slate-500">Isi Berita</label>
                 <textarea id="n-content" className="block w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700" rows={4} value={newArticle.content} onChange={(e) => setNewArticle({ ...newArticle, content: e.target.value })} required />
               </div>
-              <Button type="submit" variant="primary" disabled={isLoading} className="bg-brand-green-900 hover:bg-brand-green-800 text-white font-bold rounded-xl px-5 text-xs py-2.5">Terbitkan Berita</Button>
+              <div className="flex gap-2">
+                <Button type="submit" variant="primary" disabled={isLoading} className="bg-brand-green-900 hover:bg-brand-green-800 text-white font-bold rounded-xl px-5 text-xs py-2.5">
+                  {editingArticleId ? 'Simpan Perubahan' : 'Terbitkan Berita'}
+                </Button>
+                {editingArticleId && <Button type="button" variant="outline" onClick={resetNewsForm}>Batal</Button>}
+              </div>
             </form>
 
             <div className="space-y-3">
@@ -555,20 +662,23 @@ export const CmsSettingsPage: React.FC = () => {
                         <td className="p-3 font-bold">{item.title}</td>
                         <td className="p-3">{item.category}</td>
                         <td className="p-3">{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
-                        <td className="p-3">
+                        <td className="p-3 flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleEditArticle(item)}>Edit</Button>
                           <button type="button" onClick={async () => {
                             if (!window.confirm('Hapus berita ini?')) return;
                             setIsLoading(true);
                             try {
+                              await supabase.from('custom_field_values').delete().eq('entity_id', item.id);
                               const { error } = await supabase.from('news_articles').delete().eq('id', item.id);
                               if (error) throw error;
                               setSuccessMsg('Artikel berita berhasil dihapus.');
                               loadData();
                             } catch (err: any) {
                               setErrorMsg('Gagal menghapus: ' + err.message);
+                            } finally {
                               setIsLoading(false);
                             }
-                          }} className="text-rose-600 font-bold hover:underline cursor-pointer">Hapus</button>
+                          }} className="text-rose-600 font-bold hover:underline cursor-pointer p-2 rounded-md hover:bg-rose-50">Hapus</button>
                         </td>
                       </tr>
                     ))}
@@ -689,20 +799,23 @@ export const CmsSettingsPage: React.FC = () => {
       </div>
 
       <Modal isOpen={isMediaSelectorOpen} onClose={() => setIsMediaSelectorOpen(false)} title="Pilih Media dari Pustaka" size="4xl">
-        <MediaLibrary
-          isSelectorMode={true}
-          onSelectMedia={(url) => {
-            if (activeSelectorTarget === 'banners') {
-              setNewBanner({ ...newBanner, image_url: url });
-            } else if (activeSelectorTarget === 'news') {
-              setNewArticle({ ...newArticle, image_url: url });
-            } else if (activeSelectorTarget === 'gallery') {
-              setNewGalleryItem({ ...newGalleryItem, image_url: url });
-            }
-            setIsMediaSelectorOpen(false);
-          }}
-          onCloseSelector={() => setIsMediaSelectorOpen(false)}
-        />
+        <React.Suspense fallback={<div className="flex items-center justify-center p-8 text-xs font-semibold text-slate-500">Memuat Pustaka Media...</div>}>
+          <MediaLibrary
+            isSelectorMode={true}
+            onSelectMedia={(url) => {
+              if (activeSelectorTarget === 'banners') {
+                setNewBanner({ ...newBanner, image_url: url });
+              } else if (activeSelectorTarget === 'news') {
+                setNewArticle({ ...newArticle, image_url: url });
+              } else if (activeSelectorTarget === 'gallery') {
+                setNewGalleryItem({ ...newGalleryItem, image_url: url });
+              }
+              setIsMediaSelectorOpen(false);
+              setActiveSelectorTarget(null);
+            }}
+            onCloseSelector={() => setIsMediaSelectorOpen(false)}
+          />
+        </React.Suspense>
       </Modal>
     </div>
   );
